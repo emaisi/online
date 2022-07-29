@@ -44,7 +44,6 @@
 #include <Crypto.hpp>
 #include "FileServer.hpp"
 #include "COOLWSD.hpp"
-#include "FileUtil.hpp"
 #include "ServerURL.hpp"
 #include <Log.hpp>
 #include <Protocol.hpp>
@@ -345,13 +344,11 @@ bool FileServerRequestHandler::isAdminLoggedIn(const HTTPRequest& request,
         {
             localPath = path.toString().substr(prefix.length());
         }
-
-        if (!FileUtil::Stat(localPath).exists())
+        if (!Poco::File(localPath).exists())
         {
             LOG_ERR("Local file URI [" << localPath << "] invalid or doesn't exist.");
             throw BadRequestException("Invalid URI: " + localPath);
         }
-
         if (request.getMethod() == "GET" && !Util::endsWith(path.toString(), suffix))
         {
             LocalFileInfo localFile;
@@ -899,20 +896,12 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     LOG_TRC("ui_defaults=" << uiDefaults);
     const std::string cssVars = form.get("css_variables", "");
     LOG_TRC("css_variables=" << cssVars);
-    std::string buyProduct;
-    {
-        std::lock_guard<std::mutex> lock(COOLWSD::RemoteConfigMutex);
-        buyProduct = COOLWSD::BuyProductUrl;
-    }
-    if (buyProduct.empty())
-        buyProduct = form.get("buy_product", "");
+    const std::string buyProduct = form.get("buy_product", "");
     LOG_TRC("buy_product=" << buyProduct);
     const std::string postMessageOrigin = form.get("postmessage_origin", "");
     LOG_TRC("postmessage_origin" << postMessageOrigin);
     const std::string theme = form.get("theme", "");
     LOG_TRC("theme=" << theme);
-    const std::string checkfileinfo_override = form.get("checkfileinfo_override", "");
-    LOG_TRC("checkfileinfo_override=" << checkfileinfo_override);
 
     // Escape bad characters in access token.
     // This is placed directly in javascript in cool.html, we need to make sure
@@ -959,8 +948,6 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     Poco::replaceInPlace(preprocess, std::string("%SERVICE_ROOT%"), responseRoot);
     Poco::replaceInPlace(preprocess, std::string("%UI_DEFAULTS%"), uiDefaultsToJSON(uiDefaults, userInterfaceMode));
     Poco::replaceInPlace(preprocess, std::string("%POSTMESSAGE_ORIGIN%"), escapedPostmessageOrigin);
-    Poco::replaceInPlace(preprocess, std::string("%CHECK_FILE_INFO_OVERRIDE%"),
-                         checkFileInfoToJSON(checkfileinfo_override));
 
     const auto& config = Application::instance().config();
 
@@ -1071,8 +1058,6 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     }
     Poco::replaceInPlace(preprocess, std::string("%FEEDBACK_URL%"), std::string(FEEDBACK_URL));
     Poco::replaceInPlace(preprocess, std::string("%WELCOME_URL%"), std::string(WELCOME_URL));
-    Poco::replaceInPlace(preprocess, std::string("%BUYPRODUCT_URL%"), buyProduct);
-    Poco::replaceInPlace(preprocess, std::string("%DEEPL_ENABLED%"), (config.getBool("deepl.enabled", false) ? std::string("true"): std::string("false")));
 
     const std::string mimeType = "text/html";
 
@@ -1086,8 +1071,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
            "script-src 'unsafe-inline' 'self'; "
            "style-src 'self' 'unsafe-inline'; "
            "font-src 'self' data:; "
-           "object-src 'self' blob:; "
-           "media-src 'self'; ";
+           "object-src 'self' blob:; ";
 
     // Frame ancestors: Allow coolwsd host, wopi host and anything configured.
     std::string configFrameAncestor = config.getString("net.frame_ancestors", "");
@@ -1121,7 +1105,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
         // X-Frame-Options supports only one ancestor, ignore that
         //(it's deprecated anyway and CSP works in all major browsers)
         // frame anchestors are also allowed for img-src in order to load the views avatars
-        cspOss << imgSrc << " " << frameAncestors << "; "
+        cspOss << imgSrc << frameAncestors << "; "
                 << "frame-ancestors " << frameAncestors;
         std::string escapedFrameAncestors;
         Poco::URI::encode(frameAncestors, "'", escapedFrameAncestors);
