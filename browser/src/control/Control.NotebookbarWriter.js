@@ -94,11 +94,9 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 
 	getFileTab: function() {
 		var hasSigning = L.DomUtil.get('document-signing-bar') !== null;
-		var hasRevisionHistory = L.Params.revHistoryEnabled;
 		var hasPrint = !this._map['wopi'].HidePrintOption;
 		var hasRepair = !this._map['wopi'].HideRepairOption;
 		var hasSaveAs = !this._map['wopi'].UserCanNotWriteRelative;
-		var hasShare = this._map['wopi'].EnableShare;
 		var hasGroupedDownloadAs = !!window.groupDownloadAsForNb;
 		var hasGroupedSaveAs = window.uiDefaults && window.uiDefaults.saveAsMode === 'group';
 		var hasRunMacro = !(window.enableMacrosExecution  === 'false');
@@ -258,9 +256,6 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 	},
 
 	getHelpTab: function() {
-		var hasLatestUpdates = window.enableWelcomeMessage;
-		var hasFeedback = this._map.feedback;
-		var hasAbout = L.DomUtil.get('about-dialog') !== null;
 
 		var content = [
 			{
