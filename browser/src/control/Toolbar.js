@@ -872,6 +872,16 @@ L.Map.include({
 				this.zotero.handleStyleList();
 			}
 			break;
+		case 'exportpdf':
+			{
+				this.sendUnoCommand('.uno:ExportToPDF', {
+					'SynchronMode': {
+						'type': 'boolean',
+						'value': false
+					}
+				});
+			}
+			break;
 		}
 	},
 });
