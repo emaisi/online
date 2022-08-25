@@ -39,7 +39,9 @@ app.definitions.Socket = L.Class.extend({
 
 	connect: function(socket) {
 		var map = this._map;
-		map.options.docParams['permission'] = app.file.permission;
+		if (map.options.permission) {
+			map.options.docParams['permission'] = map.options.permission;
+		}
 		if (this.socket) {
 			this.close();
 		}
@@ -596,30 +598,33 @@ app.definitions.Socket = L.Class.extend({
 			var perm = textMsg.substring('perm:'.length).trim();
 
 			// Never make the permission more permissive than it originally was.
-			if (app.file.permission == 'edit')
-				app.file.permission = perm;
+			if (this._map.options.permission == 'edit')
+			{
+				this._map.options.permission = perm;
+			}
 
-			if (this._map._docLayer)
-				this._map.setPermission(app.file.permission);
+			if (this._map._docLayer) {
+				this._map.setPermission(this._map.options.permission);
+			}
 
 			app.file.disableSidebar = perm !== 'edit';
-			app.file.readOnly = app.file.permission === 'readonly';
+			app.file.readOnly = this._map.options.permission === 'readonly';
 			return;
 		}
 		else if (textMsg.startsWith('filemode:')) {
 			var json = JSON.parse(textMsg.substring('filemode:'.length).trim());
 
 			// Never make the permission more permissive than it originally was.
-			if (app.file.permission == 'edit' && json.readOnly)
+			if (this._map.options.permission == 'edit' && json.readOnly)
 			{
-				app.file.permission = 'readonly';
+				this._map.options.permission = 'readonly';
 			}
 
 			if (this._map._docLayer) {
-				this._map.setPermission(app.file.permission);
+				this._map.setPermission(this._map.options.permission);
 			}
 
-			app.file.readOnly = app.file.permission === 'readonly';
+			app.file.readOnly = this._map.options.permission === 'readonly';
 			app.file.editComment = json.editComment; // Allowed even in readonly mode.
 		}
 		else if (textMsg.startsWith('lockfailed:')) {
@@ -913,7 +918,7 @@ app.definitions.Socket = L.Class.extend({
 							}})
 					);
 				}
-				if (!this._map.isReadOnlyMode()) {
+				if (!this._map.isPermissionReadOnly()) {
 					vex.dialog.open({
 						unsafeMessage: '<h1 class="vex-dialog-title">' + vex._escapeHtml(_('Document has been changed')) + '</h1><p class="vex-dialog-message">' + vex._escapeHtml(_('Document has been changed in storage. What would you like to do with your unsaved changes?')) + '</p>',
 						escapeButtonCloses: false,
@@ -1074,8 +1079,7 @@ app.definitions.Socket = L.Class.extend({
 		}
 		else if (textMsg.startsWith('fontsmissing:')) {
 			var fontsMissingObj = JSON.parse(textMsg.substring(textMsg.indexOf('{')));
-			var msg = _('Missing fonts:');
-			msg += ' ';
+			var msg = 'Missing fonts: ';
 			for (var i = 0; i < fontsMissingObj.fontsmissing.length; ++i) {
 				if (i > 0)
 					msg += ', ';
@@ -1199,7 +1203,6 @@ app.definitions.Socket = L.Class.extend({
 
 		if (textMsg.startsWith('status:')) {
 			this._onStatusMsg(textMsg, command);
-			return;
 		}
 
 		// These can arrive very early during the startup, and never again.
@@ -1276,7 +1279,7 @@ app.definitions.Socket = L.Class.extend({
 				// if this is save-as, we need to load the document with edit permission
 				// otherwise the user has to close the doc then re-open it again
 				// in order to be able to edit.
-				app.file.permission = 'edit';
+				this._map.options.permission = 'edit';
 				this.close();
 				this._map.loadDocument();
 				this._map.sendInitUNOCommands();
@@ -1368,6 +1371,7 @@ app.definitions.Socket = L.Class.extend({
 			var docLayer = null;
 			if (command.type === 'text') {
 				docLayer = new L.WriterTileLayer('', {
+					permission: this._map.options.permission,
 					tileWidthTwips: tileWidthTwips / app.dpiScale,
 					tileHeightTwips: tileHeightTwips / app.dpiScale,
 					docType: command.type
@@ -1375,6 +1379,7 @@ app.definitions.Socket = L.Class.extend({
 			}
 			else if (command.type === 'spreadsheet') {
 				docLayer = new L.CalcTileLayer('', {
+					permission: this._map.options.permission,
 					tileWidthTwips: tileWidthTwips / app.dpiScale,
 					tileHeightTwips: tileHeightTwips / app.dpiScale,
 					docType: command.type
@@ -1382,6 +1387,7 @@ app.definitions.Socket = L.Class.extend({
 			}
 			else if (command.type === 'presentation' || command.type === 'drawing') {
 				docLayer = new L.ImpressTileLayer('', {
+					permission: this._map.options.permission,
 					tileWidthTwips: tileWidthTwips / app.dpiScale,
 					tileHeightTwips: tileHeightTwips / app.dpiScale,
 					docType: command.type
@@ -1401,7 +1407,7 @@ app.definitions.Socket = L.Class.extend({
 			this._map._isNotebookbarLoadedOnCore = false;
 			var uiMode = this._map.uiManager.getCurrentMode();
 			this._map.fire('changeuimode', {mode: uiMode, force: true});
-			this._map.setPermission(app.file.permission);
+			this._map.setPermission(this._map.options.permission);
 		}
 
 		this._map.fire('docloaded', {status: true});
@@ -1552,10 +1558,6 @@ app.definitions.Socket = L.Class.extend({
 				that._map._activate();
 			}
 		}, 1 /* ms */);
-
-		if (this._map.isEditMode()) {
-			this._map.setPermission('view');
-		}
 
 		if (!this._map['wopi'].DisableInactiveMessages)
 			this._map.uiManager.showSnackbar(_('The server has been disconnected.'));
@@ -1708,12 +1710,6 @@ app.definitions.Socket = L.Class.extend({
 					element = element.split(',');
 					return [parseInt(element[0]), parseInt(element[1]), parseInt(element[2]), parseInt(element[3])];
 				});
-			}
-			else if (tokens[i].startsWith('lastcolumn=')) {
-				command.lastcolumn = parseInt(tokens[i].substring(11));
-			}
-			else if (tokens[i].startsWith('lastrow=')) {
-				command.lastrow = parseInt(tokens[i].substring(8));
 			}
 		}
 		if (command.tileWidth && command.tileHeight && this._map._docLayer) {
