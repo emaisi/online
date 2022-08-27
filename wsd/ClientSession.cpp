@@ -201,26 +201,26 @@ std::string ClientSession::getClipboardURI(bool encode)
     if (_wopiFileInfo && _wopiFileInfo->getDisableCopy())
         return std::string();
 
-    return createPublicURI("clipboard", _clipboardKeys[0], encode);
-}
-
-std::string ClientSession::createPublicURI(const std::string& subPath, const std::string& tag, bool encode)
-{
+    std::string encodedFrom;
     Poco::URI wopiSrc = getDocumentBroker()->getPublicUri();
     wopiSrc.setQueryParameters(Poco::URI::QueryParameters());
 
-    const std::string encodedFrom = Util::encodeURIComponent(wopiSrc.toString());
+    std::string encodeChars = ",/?:@&=+$#"; // match JS encodeURIComponent
+    Poco::URI::encode(wopiSrc.toString(), encodeChars, encodedFrom);
 
     std::string meta = _serverURL.getSubURLForEndpoint(
-        "/cool/" + subPath + "?WOPISrc=" + encodedFrom +
+        "/cool/clipboard?WOPISrc=" + encodedFrom +
         "&ServerId=" + Util::getProcessIdentifier() +
         "&ViewId=" + std::to_string(getKitViewId()) +
-        "&Tag=" + tag);
+        "&Tag=" + _clipboardKeys[0]);
 
     if (!encode)
         return meta;
 
-    return Util::encodeURIComponent(meta);
+    std::string metaEncoded;
+    Poco::URI::encode(meta, encodeChars, metaEncoded);
+
+    return metaEncoded;
 }
 
 bool ClientSession::matchesClipboardKeys(const std::string &/*viewId*/, const std::string &tag)
@@ -1204,7 +1204,7 @@ bool ClientSession::getCommandValues(const char *buffer, int length, const Strin
         return sendTextFrameAndLogError("error: cmd=commandvalues kind=syntax");
 
     std::string cmdValues;
-    if (docBroker->hasTileCache() && docBroker->tileCache().getTextStream(TileCache::StreamType::CmdValues, command, cmdValues))
+    if (docBroker->tileCache().getTextStream(TileCache::StreamType::CmdValues, command, cmdValues))
         return sendTextFrame(cmdValues);
 
     return forwardToChild(std::string(buffer, length), docBroker);
@@ -1367,7 +1367,7 @@ void ClientSession::sendFileMode(const bool readOnly, const bool editComments)
 void ClientSession::setLockFailed(const std::string& sReason)
 {
     _isLockFailed = true;
-    setReadOnly(true);
+    setReadOnly();
     sendTextFrame("lockfailed:" + sReason);
 }
 
@@ -1813,31 +1813,9 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
     }
     else if (tokens.equals(0, "mediashape:"))
     {
-        const std::string json = payload->jsonString();
-        Poco::JSON::Object::Ptr object;
-        if (JsonUtil::parseJSON(json, object))
-        {
-            const std::string id = JsonUtil::getJSONValue<std::string>(object, "id");
-            if (id.empty())
-            {
-                LOG_ERR("Invalid embeddedmedia json without id: " << json);
-            }
-            else
-            {
-                docBroker->addEmbeddedMedia(id, json);
-
-                const std::string mediaUrl =
-                    Util::encodeURIComponent(createPublicURI("media", id, /*encode=*/false), "&");
-                object->set("url", mediaUrl);
-                object->set("mimeType", "video/mp4"); //FIXME: get this from the source json
-
-                std::ostringstream mediaStr;
-                object->stringify(mediaStr);
-                forwardToClient(
-                    std::make_shared<Message>("mediashape: " + mediaStr.str(), Message::Dir::Out));
-            }
-        }
-
+        const std::string newJson = docBroker->addEmbeddedMedia(payload->jsonString());
+        if (!newJson.empty())
+            forwardToClient(std::make_shared<Message>("mediashape: " + newJson, Message::Dir::Out));
         return true;
     }
     else if (tokens.equals(0, "formfieldbutton:")) {
@@ -1862,13 +1840,6 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
             setState(ClientSession::SessionState::LIVE);
             docBroker->setInteractive(false);
             docBroker->setLoaded();
-
-            if (UnitWSD::isUnitTesting())
-            {
-                UnitWSD::get().onDocBrokerViewLoaded(
-                    docBroker->getDocKey(),
-                    std::dynamic_pointer_cast<ClientSession>(shared_from_this()));
-            }
 
 #if !MOBILEAPP
             Admin::instance().setViewLoadDuration(docBroker->getDocKey(), getId(), std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - _viewLoadStart));
@@ -2459,59 +2430,6 @@ void ClientSession::preProcessSetClipboardPayload(std::string& payload)
         std::size_t len = end - start + 4;
         payload.erase(start, len);
     }
-}
-
-std::string ClientSession::processSVGContent(const std::string& svg)
-{
-    const std::shared_ptr<DocumentBroker> docBroker = _docBroker.lock();
-    if (!docBroker)
-    {
-        LOG_ERR("No DocBroker to process SVG content");
-        return svg;
-    }
-
-    bool broken = false;
-    std::ostringstream oss;
-    std::string::size_type pos = 0;
-    for (;;)
-    {
-        static const std::string prefix = "src=\"file:///tmp/";
-        const auto start = svg.find(prefix, pos);
-        if (start == std::string::npos)
-        {
-            // Copy the rest and finish.
-            oss << svg.substr(pos);
-            break;
-        }
-
-        const auto startFilename = start + prefix.size();
-        const auto end = svg.find('"', startFilename);
-        if (end == std::string::npos)
-        {
-            // Broken file; leave it as-is. Better to have no video than no slideshow.
-            broken = true;
-            break;
-        }
-
-        auto dot = svg.find('.', startFilename);
-        if (dot == std::string::npos || dot > end)
-            dot = end;
-
-        const std::string id = svg.substr(startFilename, dot - startFilename);
-        oss << svg.substr(pos, start - pos);
-
-        // Store the original json with the internal, temporary, file URI.
-        const std::string fileUrl = svg.substr(start + 5, end - start - 5);
-        docBroker->addEmbeddedMedia(id, "{ \"action\":\"update\",\"id\":\"" + id + "\",\"url\":\"" +
-                                            fileUrl + "\"}");
-
-        const std::string mediaUrl =
-            Util::encodeURIComponent(createPublicURI("media", id, /*encode=*/false), "&");
-        oss << "src=\"" << mediaUrl << '"';
-        pos = end + 1;
-    }
-
-    return broken ? svg : oss.str();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

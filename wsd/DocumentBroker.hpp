@@ -492,7 +492,7 @@ public:
     void unregisterDownloadId(const std::string& downloadId);
 
     /// Add embedded media objects. Returns json with external URL.
-    void addEmbeddedMedia(const std::string& id, const std::string& json);
+    std::string addEmbeddedMedia(const std::string& json);
     /// Remove embedded media objects.
     void removeEmbeddedMedia(const std::string& json);
 
@@ -703,6 +703,7 @@ private:
     /// a convert-to request or doctored to look like one.
     virtual bool isConvertTo() const { return false; }
 
+private:
     /// Request manager.
     /// Encapsulates common fields for
     /// Save and Upload requests.
@@ -1080,7 +1081,7 @@ private:
         void setLastUploadResult(bool success)
         {
             LOG_DBG("Upload " << (success ? "succeeded" : "failed") << " after "
-                              << _request.lastRequestDuration());
+                              << _request.timeSinceLastRequest());
             _request.setLastRequestResult(success);
         }
 
@@ -1410,14 +1411,6 @@ private:
 
     /// Embedded media map [id, json].
     std::map<std::string, std::string> _embeddedMedia;
-
-    // Last member.
-#ifdef ENABLE_DEBUG
-    /// The UnitWSD instance. We capture it here since
-    /// this is our instance, but the test framework
-    /// has a single global instance via UnitWSD::get().
-    UnitWSD& _unitWsd;
-#endif
 };
 
 #if !MOBILEAPP
