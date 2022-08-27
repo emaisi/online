@@ -57,9 +57,6 @@ struct TileLocation {
 /// A quick and dirty, thread-safe delta generator for last tile changes
 class DeltaGenerator {
 
-    // fast - and deltas take lots of size off.
-    static const int compressionLevel = -3;
-
     /// Bitmap row with a CRC for quick vertical shift detection
     struct DeltaBitmapRow {
         // FIXME: add "whole row the same" flag.
@@ -356,7 +353,7 @@ class DeltaGenerator {
                     lastMatchOffset = match - y;
                     output.push_back('c');   // copy-row
                     lastCopy = output.size();
-                    output.push_back(1);     // count - updated later.
+                    output.push_back(1);     // count
                     output.push_back(match); // src
                     output.push_back(y);     // dest
 
@@ -426,8 +423,8 @@ class DeltaGenerator {
 
         // compress for speed, not size - and trust to deltas.
         size_t compSize = ZSTD_compress(compressed.get(), maxCompressed,
-                                        output.data(), output.size(),
-                                        compressionLevel);
+                                       output.data(), output.size(),
+                                       ZSTD_minCLevel());
         if (ZSTD_isError(compSize))
         {
             LOG_ERR("Failed to compress delta of size " << output.size() << " with " << ZSTD_getErrorName(compSize));
@@ -435,7 +432,7 @@ class DeltaGenerator {
         }
 
         LOG_TRC("Compressed delta of size " << output.size() << " to size " << compSize);
-//                << Util::dumpHex(std::string((char *)compressed.get(), compSize)));
+//                << Util::dumpHex(std::string((char *)compressed, compSize)));
 
         // FIXME: should get zstd to drop it directly in-place really.
         outStream.push_back('D');
@@ -557,8 +554,6 @@ class DeltaGenerator {
 
             ZSTD_CCtx *cctx = ZSTD_createCCtx();
 
-            ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, compressionLevel);
-
             ZSTD_outBuffer outb;
             outb.dst = compressed.get();
             outb.size = maxCompressed;
@@ -604,19 +599,35 @@ class DeltaGenerator {
         return output.size();
     }
 
-    // used only by test code
     static Blob expand(const Blob &blob)
     {
         Blob img = std::make_shared<BlobData>();
         img->resize(1024*1024*4); // lots of extra space.
 
-        size_t const dSize = ZSTD_decompress(img->data(), img->size(), blob->data(), blob->size());
-        if (ZSTD_isError(dSize))
+        z_stream zstr;
+        memset((void *)&zstr, 0, sizeof (zstr));
+
+        zstr.next_in = (Bytef *)blob->data();
+        zstr.avail_in = blob->size();
+        zstr.next_out = (Bytef *)img->data();
+        zstr.avail_out = img->size();
+
+        if (inflateInit2 (&zstr, -MAX_WBITS) != Z_OK)
         {
-            LOG_ERR("Failed to decompress blob of size " << blob->size() << " with " << ZSTD_getErrorName(dSize));
+            LOG_ERR("Failed to expand zimage");
             return Blob();
         }
-        img->resize(dSize);
+
+        if (inflate (&zstr, Z_SYNC_FLUSH) != Z_STREAM_END)
+        {
+            LOG_ERR("Failed to inflate zimage");
+            return Blob();
+        }
+
+        if (inflateEnd(&zstr) != Z_OK)
+            return Blob();
+
+        img->resize(img->size() - zstr.avail_out);
 
         return img;
     }
