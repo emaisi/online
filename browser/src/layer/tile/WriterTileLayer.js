@@ -61,7 +61,7 @@ L.WriterTileLayer = L.CanvasTileLayer.extend({
 			command.part = this._selectedPart;
 		}
 
-		if (isNaN(command.mode))
+		if (command.mode === undefined)
 			command.mode = this._selectedMode;
 
 		command.part = 0;
