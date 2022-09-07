@@ -83,8 +83,6 @@ L.Control.UIManager = L.Control.extend({
 			this.map.addControl(this.map.sidebar);
 
 			this.map.addControl(L.control.mobileWizardPopup());
-
-			this.map.addControl(L.control.mention());
 		}
 
 		setupToolbar(this.map);
@@ -192,9 +190,9 @@ L.Control.UIManager = L.Control.extend({
 			L.DomUtil.remove(L.DomUtil.get('presentation-controls-wrapper'));
 			document.getElementById('selectbackground').parentNode.removeChild(document.getElementById('selectbackground'));
 
-			if ((window.mode.isTablet() || window.mode.isDesktop()) && this.map.canUserWrite()) {
+			if ((window.mode.isTablet() || window.mode.isDesktop()) && window.docPermission === 'edit') {
 				var showRuler = this.getSavedStateOrDefault('ShowRuler');
-				var interactiveRuler = this.map.isEditMode();
+				var interactiveRuler = this.map.isPermissionEdit();
 				var isRTL = document.documentElement.dir === 'rtl';
 				L.control.ruler({position: (isRTL ? 'topright' : 'topleft'), interactive:interactiveRuler, showruler: showRuler}).addTo(this.map);
 				this.map.fire('rulerchanged');
@@ -216,9 +214,6 @@ L.Control.UIManager = L.Control.extend({
 		}
 
 		this.map.on('changeuimode', this.onChangeUIMode, this);
-
-		if (typeof window.initializedUI === 'function')
-			window.initializedUI();
 	},
 
 	initializeSidebar: function() {
@@ -226,27 +221,16 @@ L.Control.UIManager = L.Control.extend({
 		if (window.mode.isDesktop() && !window.ThisIsAMobileApp) {
 			var showSidebar = this.getSavedStateOrDefault('ShowSidebar');
 
-			if (this.getSavedStateOrDefault('PropertyDeck')) {
-				app.socket.sendMessage('uno .uno:SidebarShow');
-			}
-
 			if (this.map.getDocType() === 'presentation') {
-				if (this.getSavedStateOrDefault('SdSlideTransitionDeck', false)) {
-					app.socket.sendMessage('uno .uno:SidebarShow');
+				if (this.getSavedStateOrDefault('SdSlideTransitionDeck'))
 					app.socket.sendMessage('uno .uno:SlideChangeWindow');
-					this.map.sidebar.setupTargetDeck('.uno:SlideChangeWindow');
-				} else if (this.getSavedStateOrDefault('SdCustomAnimationDeck', false)) {
-					app.socket.sendMessage('uno .uno:SidebarShow');
+				else if (this.getSavedStateOrDefault('SdCustomAnimationDeck'))
 					app.socket.sendMessage('uno .uno:CustomAnimation');
-					this.map.sidebar.setupTargetDeck('.uno:CustomAnimation');
-				} else if (this.getSavedStateOrDefault('SdMasterPagesDeck', false)) {
-					app.socket.sendMessage('uno .uno:SidebarShow');
+				else if (this.getSavedStateOrDefault('SdMasterPagesDeck'))
 					app.socket.sendMessage('uno .uno:MasterSlidesPanel');
-					this.map.sidebar.setupTargetDeck('.uno:MasterSlidesPanel');
-				}
 			}
 
-			if (!showSidebar)
+			if (showSidebar === false)
 				app.socket.sendMessage('uno .uno:SidebarHide');
 		}
 		else if (window.mode.isChromebook()) {
@@ -375,16 +359,13 @@ L.Control.UIManager = L.Control.extend({
 		// displayed correctly
 		this.map.fire('rulerchanged');
 		this.map.fire('statusbarchanged');
-
-		if (typeof window.initializedUI === 'function')
-			window.initializedUI();
 	},
 
 	// UI modification
 
 	insertButtonToClassicToolbar: function(button) {
 		if (!w2ui['editbar'].get(button.id)) {
-			if (this.map.isEditMode()) {
+			if (this.map.isPermissionEdit()) {
 				// add the css rule for the image
 				var style = $('html > head > style');
 				if (style.length == 0)
@@ -414,7 +395,7 @@ L.Control.UIManager = L.Control.extend({
 					toolbarUpMobileItems.splice(idx, 0, button.id);
 				}
 			}
-			else if (this.map.isReadOnlyMode()) {
+			else if (this.map.isPermissionReadOnly()) {
 				// Just add a menu entry for it
 				this.map.fire('addmenu', {id: button.id, label: button.hint});
 			}
@@ -667,7 +648,7 @@ L.Control.UIManager = L.Control.extend({
 	},
 
 	enterReadonlyOrClose: function() {
-		if (this.map.isEditMode()) {
+		if (this.map.isPermissionEdit()) {
 			// in edit mode, passing 'edit' actually enters readonly mode
 			// and bring the blue circle editmode button back
 			this.map.setPermission('edit');
