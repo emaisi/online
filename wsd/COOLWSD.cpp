@@ -199,10 +199,8 @@ ServerSocket::Type ClientListenAddr = ServerSocket::Type::Public;
 /// UDS address for kits to connect to.
 std::string MasterLocation;
 
-std::string COOLWSD::BuyProductUrl;
 std::string COOLWSD::LatestVersion;
 std::mutex COOLWSD::FetchUpdateMutex;
-std::mutex COOLWSD::RemoteConfigMutex;
 #endif
 
 // Tracks the set of prisoners / children waiting to be used.
@@ -409,7 +407,7 @@ void cleanupDocBrokers()
                 logger << "DocumentBroker [" << pair.first << "].\n";
             }
 
-            LOG_END_FLUSH(logger);
+            LOG_END(logger);
         }
 
 #if !MOBILEAPP && ENABLE_DEBUG
@@ -888,7 +886,6 @@ std::string COOLWSD::ConfigDir = COOLWSD_CONFIGDIR "/conf.d";
 bool COOLWSD::EnableTraceEventLogging = false;
 FILE *COOLWSD::TraceEventFile = NULL;
 std::string COOLWSD::LogLevel = "trace";
-std::string COOLWSD::LogLevelStartup = "trace";
 std::string COOLWSD::MostVerboseLogLevelSettableFromClient = "notice";
 std::string COOLWSD::LeastVerboseLogLevelSettableFromClient = "fatal";
 std::string COOLWSD::UserInterface = "default";
@@ -990,15 +987,6 @@ public:
             setRaw(pair.first, pair.second);
         }
     }
-
-    void reset(const std::map<std::string, std::string>& map)
-    {
-        clear();
-        for (const auto& pair : map)
-        {
-            setRaw(pair.first, pair.second);
-        }
-    }
 };
 
 #if !MOBILEAPP
@@ -1053,9 +1041,9 @@ class RemoteJSONPoll : public SocketPoll
 public:
     RemoteJSONPoll(LayeredConfiguration& config, const std::string& uriConfigKey, const std::string& name, const std::string& kind)
         : SocketPoll(name)
-        , _conf(config)
-        , _configKey(uriConfigKey)
-        , _expectedKind(kind)
+        , conf(config)
+        , configKey(uriConfigKey)
+        , expectedKind(kind)
     { }
 
     virtual ~RemoteJSONPoll() { }
@@ -1067,13 +1055,13 @@ public:
 
     void start()
     {
-        Poco::URI remoteServerURI(_conf.getString(_configKey));
+        Poco::URI remoteServerURI(conf.getString(configKey));
 
-        if (_expectedKind == "configuration")
+        if (expectedKind == "configuration")
         {
             if (remoteServerURI.empty())
             {
-                LOG_INF("Remote " << _expectedKind << " is not specified in coolwsd.xml");
+                LOG_INF("Remote " << expectedKind << " is not specified in coolwsd.xml");
                 return; // no remote config server setup.
             }
 #if !ENABLE_DEBUG
@@ -1092,7 +1080,7 @@ public:
     {
         while (!isStop() && !SigUtil::getTerminationFlag() && !SigUtil::getShutdownRequestFlag())
         {
-            Poco::URI remoteServerURI(_conf.getString(_configKey));
+            Poco::URI remoteServerURI(conf.getString(configKey));
 
             // don't try to fetch from an empty URI
             bool valid = !remoteServerURI.empty();
@@ -1114,9 +1102,9 @@ public:
                     http::Request request(remoteServerURI.getPathAndQuery());
 
                     //we use ETag header to check whether JSON is modified or not
-                    if (!_eTagValue.empty())
+                    if (!eTagValue.empty())
                     {
-                        request.set("If-None-Match", _eTagValue);
+                        request.set("If-None-Match", eTagValue);
                     }
 
                     const std::shared_ptr<const http::Response> httpResponse =
@@ -1126,7 +1114,7 @@ public:
 
                     if (statusCode == Poco::Net::HTTPResponse::HTTP_OK)
                     {
-                        _eTagValue = httpResponse->get("ETag");
+                        eTagValue = httpResponse->get("ETag");
 
                         std::string body = httpResponse->getBody();
 
@@ -1137,14 +1125,14 @@ public:
                         {
                             std::string kind;
                             JsonUtil::findJSONValue(remoteJson, "kind", kind);
-                            if (kind == _expectedKind)
+                            if (kind == expectedKind)
                             {
                                 handleJSON(remoteJson);
                             }
                             else
                             {
                                 LOG_ERR("Make sure that " << remoteServerURI.toString() << " contains a property 'kind' with "
-                                        "value '" << _expectedKind << "'");
+                                        "value '" << expectedKind << "'");
                             }
                         }
                         else
@@ -1173,12 +1161,12 @@ public:
     }
 
 protected:
-    LayeredConfiguration& _conf;
-    std::string _eTagValue;
+    LayeredConfiguration& conf;
+    std::string eTagValue;
 
 private:
-    std::string _configKey;
-    std::string _expectedKind;
+    std::string configKey;
+    std::string expectedKind;
 };
 
 class RemoteConfigPoll : public RemoteJSONPoll
@@ -1187,16 +1175,17 @@ public:
     RemoteConfigPoll(LayeredConfiguration& config) :
         RemoteJSONPoll(config, "remote_config.remote_url", "remoteconfig_poll", "configuration")
     {
-        constexpr int PRIO_JSON = -200; // highest priority
-        _persistConfig = new AppConfigMap(std::map<std::string, std::string>{});
-        _conf.addWriteable(_persistConfig, PRIO_JSON);
     }
 
     virtual ~RemoteConfigPoll() { }
 
     void handleJSON(Poco::JSON::Object::Ptr remoteJson) override
     {
+        constexpr int PRIO_JSON = -200; // highest priority
+
         std::map<std::string, std::string> newAppConfig;
+
+        fetchWopiHostPatterns(newAppConfig, remoteJson);
 
         fetchAliasGroups(newAppConfig, remoteJson);
 
@@ -1207,57 +1196,99 @@ public:
 #endif
 
         fetchRemoteFontConfig(newAppConfig, remoteJson);
-        _persistConfig->reset(newAppConfig);
+
+        AutoPtr<AppConfigMap> newConfig(new AppConfigMap(newAppConfig));
+        conf.addWriteable(newConfig, PRIO_JSON);
+
+        HostUtil::parseWopiHost(conf);
 
 #if ENABLE_FEATURE_LOCK
-        CommandControl::LockManager::parseLockedHost(_conf);
+        CommandControl::LockManager::parseLockedHost(conf);
 #endif
 
-        HostUtil::parseAliases(_conf);
+        HostUtil::parseAliases(conf);
+    }
 
-        handleOptions(remoteJson);
+    void fetchWopiHostPatterns(std::map<std::string, std::string>& newAppConfig,
+                               Poco::JSON::Object::Ptr remoteJson)
+    {
+        //wopi host patterns
+        if (!conf.getBool("storage.wopi[@allow]", false))
+        {
+            LOG_INF("WOPI host feature is disabled in configuration");
+            return;
+        }
+        try
+        {
+            Poco::JSON::Array::Ptr wopiHostPatterns;
+            try
+            {
+                wopiHostPatterns = remoteJson->getObject("storage")->getObject("wopi")->getArray("hosts");
+            }
+            catch (const Poco::NullPointerException&)
+            {
+                LOG_INF("Not overwriting any wopi host pattern because the storage->wopi->hosts section does not exist");
+                return;
+            }
+
+            if (wopiHostPatterns->size() == 0)
+            {
+                LOG_INF("Not overwriting any wopi host pattern because JSON contains empty array");
+                return;
+            }
+
+            std::size_t i;
+            for (i = 0; i < wopiHostPatterns->size(); i++)
+            {
+                std::string host;
+
+                Poco::JSON::Object::Ptr subObject = wopiHostPatterns->getObject(i);
+                JsonUtil::findJSONValue(subObject, "host", host);
+                Poco::Dynamic::Var allow = subObject->get("allow");
+
+                const std::string path = "storage.wopi.host[" + std::to_string(i) + ']';
+                newAppConfig.insert(std::make_pair(path, host));
+                newAppConfig.insert(std::make_pair(path + "[@allow]", booleanToString(allow)));
+            }
+
+            //if number of wopi host patterns defined in coolwsd.xml are greater than number of host
+            //fetched from json, overwrite the remaining host from config file to empty strings and
+            //set allow to false
+            for (;; ++i)
+            {
+                const std::string path = "storage.wopi.host[" + std::to_string(i) + "]";
+                if (!conf.has(path))
+                {
+                    break;
+                }
+                newAppConfig.insert(std::make_pair(path, ""));
+                newAppConfig.insert(std::make_pair(path + "[@allow]", "false"));
+            }
+        }
+        catch (std::exception& exc)
+        {
+            LOG_ERR("Failed to fetch wopi host patterns, please check JSON format: " << exc.what());
+        }
     }
 
     void fetchLockedHostPatterns(std::map<std::string, std::string>& newAppConfig,
                                  Poco::JSON::Object::Ptr remoteJson)
     {
+        if (!conf.getBool("feature_lock.locked_hosts[@allow]", false))
+        {
+            LOG_INF("locked_hosts feature is disabled from configuration");
+            return;
+        }
+
         try
         {
-            Poco::JSON::Object::Ptr lockedHost;
-            Poco::JSON::Array::Ptr lockedHostPatterns;
-            try
-            {
-                lockedHost = remoteJson->getObject("feature_locking")->getObject("locked_hosts");
-                lockedHostPatterns = lockedHost->getArray("hosts");
-            }
-            catch (const Poco::NullPointerException&)
-            {
-                LOG_INF("Overriding locked_hosts failed because feature_locking->locked_hosts->hosts array does not exist");
-                return;
-            }
+            Poco::JSON::Array::Ptr lockedHostPatterns =
+                remoteJson->getObject("feature_locking")->getObject("locked_hosts")->getArray("hosts");
 
-            if (lockedHostPatterns.isNull() || lockedHostPatterns->size() == 0)
+            if (lockedHostPatterns->size() == 0)
             {
-                LOG_INF(
-                    "Overriding locked_hosts failed because locked_hosts->hosts array is empty or null");
-                return;
-            }
-
-            //use feature_lock.locked_hosts[@allow] entry from coolwsd.xml if feature_lock.locked_hosts.allow key doesnot exist in json
-            Poco::Dynamic::Var allow = false;
-            if (!lockedHost->has("allow"))
-            {
-                allow = _conf.getBool("feature_lock.locked_hosts[@allow]");
-            }
-            else
-            {
-                allow = lockedHost->get("allow");
-            }
-            newAppConfig.insert(std::make_pair("feature_lock.locked_hosts[@allow]", booleanToString(allow)));
-
-            if (booleanToString(allow) == "false")
-            {
-                LOG_INF("locked_hosts feature is disabled, set feature_lock->locked_hosts->allow to true to enable");
+                LOG_WRN("Not overwriting any locked wopi host pattern because JSON contains empty "
+                        "array");
                 return;
             }
 
@@ -1265,6 +1296,7 @@ public:
             for (i = 0; i < lockedHostPatterns->size(); i++)
             {
                 std::string host;
+
                 Poco::JSON::Object::Ptr subObject = lockedHostPatterns->getObject(i);
                 JsonUtil::findJSONValue(subObject, "host", host);
                 Poco::Dynamic::Var readOnly = subObject->get("read_only");
@@ -1285,7 +1317,7 @@ public:
             {
                 const std::string path =
                     "feature_lock.locked_hosts.host[" + std::to_string(i) + "]";
-                if (!_conf.has(path))
+                if (!conf.has(path))
                 {
                     break;
                 }
@@ -1307,6 +1339,7 @@ public:
         {
             Poco::JSON::Object::Ptr aliasGroups;
             Poco::JSON::Array::Ptr groups;
+
             try
             {
                 aliasGroups = remoteJson->getObject("storage")->getObject("wopi")->getObject("alias_groups");
@@ -1314,13 +1347,13 @@ public:
             }
             catch (const Poco::NullPointerException&)
             {
-                LOG_INF("Overriding alias_groups failed because storage->wopi->alias_groups->groups array does not exist");
+                LOG_INF("Not overwriting any alias groups because storage->wopi->alias_groups->groups array does not exist");
                 return;
             }
 
-            if (groups.isNull() || groups->size() == 0)
+            if (groups->size() == 0)
             {
-                LOG_INF("Overriding alias_groups failed because alias_groups->groups array is empty or null");
+                LOG_INF("Not overwriting any alias groups because alias_group array is empty");
                 return;
             }
 
@@ -1347,10 +1380,11 @@ public:
 #endif
                 Poco::JSON::Array::Ptr aliases = group->getArray("aliases");
 
+
                 size_t j = 0;
-                if (aliases)
-                {
+                if (aliases) {
                     auto it = aliases->begin();
+
                     for (; j < aliases->size(); j++)
                     {
                         const std::string aliasPath = path + ".alias[" + std::to_string(j) + ']';
@@ -1361,7 +1395,7 @@ public:
                 for (;; j++)
                 {
                     const std::string aliasPath = path + ".alias[" + std::to_string(j) + ']';
-                    if (!_conf.has(aliasPath))
+                    if (!conf.has(aliasPath))
                     {
                         break;
                     }
@@ -1375,7 +1409,7 @@ public:
             {
                 const std::string path =
                     "storage.wopi.alias_groups.group[" + std::to_string(i) + "].host";
-                if (!_conf.has(path))
+                if (!conf.has(path))
                 {
                     break;
                 }
@@ -1403,7 +1437,7 @@ public:
         }
         catch (const Poco::NullPointerException&)
         {
-            LOG_INF("Overriding the remote font config URL failed because the remove_font_config entry does not exist");
+            LOG_INF("Not overwriting the remote font config URL because the remove_font_config entry does not exist");
         }
         catch (const std::exception& exc)
         {
@@ -1414,45 +1448,26 @@ public:
     void fetchLockedTranslations(std::map<std::string, std::string>& newAppConfig,
                                  Poco::JSON::Object::Ptr remoteJson)
     {
+        Poco::JSON::Array::Ptr lockedTranslations;
         try
         {
-            Poco::JSON::Array::Ptr lockedTranslations;
-            try
-            {
-                lockedTranslations =
-                    remoteJson->getObject("feature_locking")->getArray("translations");
-            }
-            catch (const Poco::NullPointerException&)
-            {
-                LOG_INF(
-                    "Overriding translations failed because feature_locking->translations array "
-                    "does not exist");
-                return;
-            }
-
-            if (lockedTranslations.isNull() || lockedTranslations->size() == 0)
-            {
-                LOG_INF("Overriding feature_locking->translations failed because array is empty or "
-                        "null");
-                return;
-            }
-
+            lockedTranslations = remoteJson->getObject("feature_locking")->getArray("translations");
             std::size_t i;
             for (i = 0; i < lockedTranslations->size(); i++)
             {
                 Poco::JSON::Object::Ptr translation = lockedTranslations->getObject(i);
                 std::string language;
                 //default values if the one of the entry is missing in json
-                std::string title = _conf.getString("feature_lock.unlock_title", "");
-                std::string description = _conf.getString("feature_lock.unlock_description", "");
+                std::string title = conf.getString("feature_lock.unlock_title", "");
+                std::string description = conf.getString("feature_lock.unlock_description", "");
                 std::string writerHighlights =
-                    _conf.getString("feature_lock.writer_unlock_highlights", "");
+                    conf.getString("feature_lock.writer_unlock_highlights", "");
                 std::string impressHighlights =
-                    _conf.getString("feature_lock.impress_unlock_highlights", "");
+                    conf.getString("feature_lock.impress_unlock_highlights", "");
                 std::string calcHighlights =
-                    _conf.getString("feature_lock.calc_unlock_highlights", "");
+                    conf.getString("feature_lock.calc_unlock_highlights", "");
                 std::string drawHighlights =
-                    _conf.getString("feature_lock.draw_unlock_highlights", "");
+                    conf.getString("feature_lock.draw_unlock_highlights", "");
 
                 JsonUtil::findJSONValue(translation, "language", language);
                 JsonUtil::findJSONValue(translation, "unlock_title", title);
@@ -1485,16 +1500,22 @@ public:
             {
                 const std::string path =
                     "feature_lock.translations.language[" + std::to_string(i) + "][@name]";
-                if (!_conf.has(path))
+                if (!conf.has(path))
                 {
                     break;
                 }
                 newAppConfig.insert(std::make_pair(path, ""));
             }
         }
+        catch (const Poco::NullPointerException&)
+        {
+            LOG_INF("Not overwriting any translations because feature_locking->translations array "
+                    "does not exist");
+            return;
+        }
         catch (const std::exception& exc)
         {
-            LOG_ERR("Failed to fetch feature_locking->translations, please check JSON format: " << exc.what());
+            LOG_ERR("Failed to fetch remote_font_config, please check JSON format: " << exc.what());
         }
     }
 
@@ -1513,30 +1534,12 @@ public:
         }
         catch (const Poco::NullPointerException&)
         {
-            LOG_INF("Overriding unlock_image URL failed because the unlock_image entry does not "
+            LOG_INF("Not overwriting the unlock_image URL because the unlock_image entry does not "
                     "exist");
         }
         catch (const std::exception& exc)
         {
             LOG_ERR("Failed to fetch unlock_image, please check JSON format: " << exc.what());
-        }
-    }
-
-    void handleOptions(Poco::JSON::Object::Ptr remoteJson)
-    {
-        try
-        {
-            std::string buyProduct;
-            JsonUtil::findJSONValue(remoteJson, "buy_product_url", buyProduct);
-            Poco::URI buyProductUri(buyProduct);
-            {
-                std::lock_guard<std::mutex> lock(COOLWSD::RemoteConfigMutex);
-                COOLWSD::BuyProductUrl = buyProductUri.toString();
-            }
-        }
-        catch(const Poco::Exception& exc)
-        {
-            LOG_ERR("handleOptions: Exception " << exc.what());
         }
     }
 
@@ -1550,10 +1553,6 @@ public:
         }
         return booleanFlag.toString();
     }
-
-private:
-    // keeps track of remote config layer
-    Poco::AutoPtr<AppConfigMap> _persistConfig = nullptr;
 };
 
 class RemoteFontConfigPoll : public RemoteJSONPoll
@@ -1803,7 +1802,7 @@ private:
         fonts.clear();
         // Clear the saved ETag of the remote font configuration file so that it will be
         // re-downloaded, and all fonts mentioned in it re-downloaded and fed to ForKit.
-        _eTagValue = "";
+        eTagValue = "";
         COOLWSD::sendMessageToForKit("exit");
     }
 
@@ -1891,7 +1890,6 @@ void COOLWSD::innerInitialize(Application& self)
         { "logging.file.property[7][@name]", "archive" },
         { "logging.file[@enable]", "false" },
         { "logging.level", "trace" },
-        { "logging.level_startup", "trace" },
         { "logging.lokit_sal_log", "-INFO-WARN" },
         { "logging.docstats", "false" },
         { "logging.userstats", "false" },
@@ -1997,7 +1995,6 @@ void COOLWSD::innerInitialize(Application& self)
         { "languagetool.ssl_verification", "true"},
         { "deepl.api_url", ""},
         { "deepl.auth_key", ""},
-        { "deepl.enabled", "false"},
     };
 
     // Set default values, in case they are missing from the config file.
@@ -2097,13 +2094,10 @@ void COOLWSD::innerInitialize(Application& self)
     }
 
     // Log at trace level until we complete the initialization.
-    LogLevelStartup = getConfigValue<std::string>(conf, "logging.level_startup", "trace");
-    setenv("COOL_LOGLEVEL_STARTUP", LogLevelStartup.c_str(), true);
-
-    Log::initialize("wsd", LogLevelStartup, withColor, logToFile, logProperties);
-    if (LogLevel != LogLevelStartup)
+    Log::initialize("wsd", "trace", withColor, logToFile, logProperties);
+    if (LogLevel != "trace")
     {
-        LOG_INF("Setting log-level to [" << LogLevelStartup << "] and delaying setting to ["
+        LOG_INF("Setting log-level to [trace] and delaying setting to configured ["
                 << LogLevel << "] until after WSD initialization.");
     }
 
@@ -2136,11 +2130,6 @@ void COOLWSD::innerInitialize(Application& self)
     ServerName = config().getString("server_name");
     LOG_INF("Initializing coolwsd server [" << ServerName << "]. Experimental features are "
                                             << (EnableExperimental ? "enabled." : "disabled."));
-
-    // Check deprecated settings.
-    bool reuseCookies = false;
-    if (getSafeConfig(conf, "storage.wopi.reuse_cookies", reuseCookies))
-        LOG_WRN("NOTE: Deprecated config option storage.wopi.reuse_cookies - no longer supported.");
 
     // Get anonymization settings.
 #if COOLWSD_ANONYMIZE_USER_DATA
@@ -2337,10 +2326,6 @@ void COOLWSD::innerInitialize(Application& self)
 
     // Initialize the config subsystem too.
     config::initialize(&config());
-
-    // For some reason I can't get at this setting in ChildSession::loKitCallback().
-    std::string fontsMissingHandling = config::getString("fonts_missing.handling", "log");
-    setenv("FONTS_MISSING_HANDLING", fontsMissingHandling.c_str(), 1);
 
     IsBindMountingEnabled = getConfigValue<bool>(conf, "mount_jail_tree", true);
 #if CODE_COVERAGE
@@ -3509,7 +3494,7 @@ public:
         }
         else
         {
-            LOG_TRC("convert-to: Requesting address is allowed: " << addressToCheck);
+            LOG_INF("convert-to: Requesting address is allowed: " << addressToCheck);
         }
 
         // Handle forwarded header and make sure all participating IPs are allowed
@@ -3725,21 +3710,16 @@ private:
             else if (requestDetails.isGet("/favicon.ico"))
                 handleFaviconRequest(requestDetails, socket);
 
-            else if (requestDetails.equals(0, "hosting"))
-            {
-                if (requestDetails.equals(1, "discovery"))
-                    handleWopiDiscoveryRequest(requestDetails, socket);
-                else if (requestDetails.equals(1, "capabilities"))
-                    handleCapabilitiesRequest(request, socket);
-            }
+            else if (requestDetails.isGet("/hosting/discovery") ||
+                     requestDetails.isGet("/hosting/discovery/"))
+                handleWopiDiscoveryRequest(requestDetails, socket);
+
+            else if (requestDetails.isGet(CAPABILITIES_END_POINT))
+                handleCapabilitiesRequest(request, socket);
+
             else if (requestDetails.isGet("/robots.txt"))
                 handleRobotsTxtRequest(request, socket);
 
-            else if (requestDetails.equals(RequestDetails::Field::Type, "cool") &&
-                     requestDetails.equals(1, "media"))
-            {
-                handleMediaRequest(request, disposition, socket);
-            }
             else if (requestDetails.equals(RequestDetails::Field::Type, "cool") &&
                      requestDetails.equals(1, "clipboard"))
             {
@@ -3770,16 +3750,6 @@ private:
                 HttpHelper::sendErrorAndShutdown(400, socket);
                 return;
             }
-        }
-        catch (const BadRequestException& ex)
-        {
-            LOG_ERR('#' << socket->getFD() << " bad request: ["
-                        << COOLProtocol::getAbbreviatedMessage(socket->getInBuffer())
-                        << "]: " << ex.what());
-
-            // Bad request.
-            HttpHelper::sendErrorAndShutdown(400, socket);
-            return;
         }
         catch (const std::exception& exc)
         {
@@ -3854,7 +3824,7 @@ private:
 
         http::Response httpResponse(http::StatusLine(200));
         httpResponse.set("Content-Length", std::to_string(responseString.size()));
-        httpResponse.set("Content-Type", mimeType);
+        httpResponse.set("Content-Type", std::to_string(mimeType.size()));
         httpResponse.set("Last-Modified", Util::getHttpTimeNow());
         httpResponse.set("Connection", "close");
         httpResponse.writeData(socket->getOutBuffer());
@@ -3871,7 +3841,7 @@ private:
         assert(socket && "Must have a valid socket");
 
         LOG_TRC("Favicon request: " << requestDetails.getURI());
-        const std::string mimeType = "image/vnd.microsoft.icon";
+        std::string mimeType = "image/vnd.microsoft.icon";
         std::string faviconPath = Path(Application::instance().commandPath()).parent().toString() + "favicon.ico";
         if (!File(faviconPath).exists())
             faviconPath = COOLWSD::FileServerRoot + "/favicon.ico";
@@ -4050,86 +4020,6 @@ private:
 
         socket->shutdown();
         LOG_INF("Sent robots.txt response successfully.");
-    }
-
-    static void handleMediaRequest(const Poco::Net::HTTPRequest& request,
-                                   SocketDisposition& /*disposition*/,
-                                   const std::shared_ptr<StreamSocket>& socket)
-    {
-        assert(socket && "Must have a valid socket");
-
-        LOG_DBG("Media request: " << request.getURI());
-
-        std::string decoded;
-        Poco::URI::decode(request.getURI(), decoded);
-        Poco::URI requestUri(decoded);
-        Poco::URI::QueryParameters params = requestUri.getQueryParameters();
-        std::string WOPISrc, serverId, viewId, tag, mime;
-        for (const auto& it : params)
-        {
-            if (it.first == "WOPISrc")
-                WOPISrc = it.second;
-            else if (it.first == "ServerId")
-                serverId = it.second;
-            else if (it.first == "ViewId")
-                viewId = it.second;
-            else if (it.first == "Tag")
-                tag = it.second;
-            else if (it.first == "MimeType")
-                mime = it.second;
-        }
-        LOG_TRC("Media request for us: " << serverId << " with tag " << tag);
-
-        if (serverId != Util::getProcessIdentifier())
-        {
-            const std::string errMsg = "Cluster configuration error: mis-matching "
-                                       "serverid ["
-                                       + serverId + "] vs. [" + Util::getProcessIdentifier()
-                                       + "] on request to URL: " + request.getURI();
-            LOG_ERR(errMsg);
-
-            // we got the wrong request.
-            http::Response httpResponse(http::StatusLine(400));
-            httpResponse.set("Content-Length", "0");
-            socket->sendAndShutdown(httpResponse);
-            socket->ignoreInput();
-            return;
-        }
-
-        const auto docKey = RequestDetails::getDocKey(WOPISrc);
-
-        std::shared_ptr<DocumentBroker> docBroker;
-        {
-            std::unique_lock<std::mutex> docBrokersLock(DocBrokersMutex);
-            auto it = DocBrokers.find(docKey);
-            if (it == DocBrokers.end())
-            {
-                const std::string errMsg =
-                    "Unknown DocBroker reference in media URL: " + request.getURI();
-                LOG_ERR(errMsg);
-
-                http::Response httpResponse(http::StatusLine(400));
-                httpResponse.set("Content-Length", "0");
-                socket->sendAndShutdown(httpResponse);
-                socket->ignoreInput();
-                return;
-            }
-
-            docBroker = it->second;
-        }
-
-        // If we have a valid docBroker, use it.
-        // Note: there is a race here as DocBroker may
-        // have already exited its SocketPoll, but we
-        // haven't cleaned up the DocBrokers container.
-        // Since we don't care about creating a new one,
-        // we simply go to the fallback below.
-        if (docBroker && docBroker->isAlive())
-        {
-            // Do things in the right thread.
-            LOG_TRC("Move media request " << tag << " to docbroker thread");
-            docBroker->handleMediaRequest(socket, tag);
-        }
     }
 
     static std::string getContentType(const std::string& fileName)
@@ -4354,14 +4244,12 @@ private:
                    options += ",PDFVer=" + pdfVer + "PDFVEREND";
                 }
 
-                std::string lang = (form.has("lang") ? form.get("lang") : "");
-
                 // This lock could become a bottleneck.
                 // In that case, we can use a pool and index by publicPath.
                 std::unique_lock<std::mutex> docBrokersLock(DocBrokersMutex);
 
                 LOG_DBG("New DocumentBroker for docKey [" << docKey << "].");
-                auto docBroker = std::make_shared<ConvertToBroker>(fromPath, uriPublic, docKey, format, options, lang);
+                auto docBroker = std::make_shared<ConvertToBroker>(fromPath, uriPublic, docKey, format, options);
                 handler.takeFile();
 
                 cleanupDocBrokers();
@@ -4806,7 +4694,6 @@ private:
         const std::string uriBaseValue = rootUriValue + "/browser/" COOLWSD_VERSION_HASH "/";
         const std::string uriValue = uriBaseValue + "cool.html?";
 
-        LOG_DBG("Processing discovery.xml from " << discoveryPath);
         InputSource inputSrc(discoveryPath);
         DOMParser parser;
         AutoPtr<Poco::XML::Document> docXML = parser.parse(&inputSrc);
@@ -4827,16 +4714,10 @@ private:
 
             // Set the View extensions cache as well.
             if (elem->getAttribute("name") == "edit")
-            {
-                const std::string ext = elem->getAttribute("ext");
-                if (COOLWSD::EditFileExtensions.insert(ext).second) // Skip duplicates.
-                    LOG_DBG("Enabling editing of [" << ext << "] extension files");
-            }
+                COOLWSD::EditFileExtensions.insert(elem->getAttribute("ext"));
             else if (elem->getAttribute("name") == "view_comment")
             {
-                const std::string ext = elem->getAttribute("ext");
-                if (COOLWSD::ViewWithCommentsFileExtensions.insert(ext).second) // Skip duplicates.
-                    LOG_DBG("Enabling commenting on [" << ext << "] extension files");
+                COOLWSD::ViewWithCommentsFileExtensions.insert(elem->getAttribute("ext"));
             }
         }
 
@@ -5211,7 +5092,7 @@ private:
         ClientPortNumber = port;
 
 #if !MOBILEAPP
-        LOG_INF('#' << socket->getFD() << "Listening to client connections on port " << port);
+        LOG_INF("Listening to client connections on port " << port);
 #else
         LOG_INF("Listening to client connections on #" << socket->getFD());
 #endif
@@ -5224,34 +5105,33 @@ void COOLWSD::processFetchUpdate()
 {
     try
     {
-        const std::string url(INFOBAR_URL);
-        if (url.empty())
-            return; // No url, nothing to do.
-
-        Poco::URI uriFetch(url);
+        Poco::URI uriFetch(std::string(INFOBAR_URL));
         uriFetch.addQueryParameter("product", APP_NAME);
         uriFetch.addQueryParameter("version", COOLWSD_VERSION);
-        LOG_TRC("Infobar update request from " << uriFetch.toString());
+        std::shared_ptr<SocketPoll> socketPoll = std::make_shared<SocketPoll>("update");
         std::shared_ptr<http::Session> sessionFetch = StorageBase::getHttpSession(uriFetch);
-        if (!sessionFetch)
+        http::Request request(uriFetch.getPathAndQuery());
+
+        if (!sessionFetch || !socketPoll)
             return;
 
-        http::Request request(uriFetch.getPathAndQuery());
         request.add("Accept", "application/json");
-
-        const std::shared_ptr<const http::Response> httpResponse =
-            sessionFetch->syncRequest(request);
-        if (httpResponse->statusLine().statusCode() == Poco::Net::HTTPResponse::HTTP_OK)
+        http::Session::FinishedCallback fetchCallback =
+            [sessionFetch, socketPoll](const std::shared_ptr<http::Session>& httpSession)
         {
-            LOG_DBG("Infobar update returned: " << httpResponse->getBody());
+            const std::shared_ptr<const http::Response> httpResponse = httpSession->response();
+            if (httpResponse->statusLine().statusCode() == Poco::Net::HTTPResponse::HTTP_OK)
+            {
+                std::lock_guard<std::mutex> lock(COOLWSD::FetchUpdateMutex);
+                COOLWSD::LatestVersion = httpResponse->getBody();
+            }
 
-            std::lock_guard<std::mutex> lock(COOLWSD::FetchUpdateMutex);
-            COOLWSD::LatestVersion = httpResponse->getBody();
-        }
-        else
-            LOG_WRN("Failed to update the infobar. Got: "
-                    << httpResponse->statusLine().statusCode() << ' '
-                    << httpResponse->statusLine().reasonPhrase());
+            socketPoll->stop();
+        };
+
+        sessionFetch->setFinishedHandler(fetchCallback);
+        sessionFetch->asyncRequest(request, *socketPoll);
+        socketPoll->startThread();
     }
     catch(const Poco::Exception& exc)
     {
@@ -5351,7 +5231,7 @@ int COOLWSD::innerMain()
     assert(Server && "The COOLWSDServer instance does not exist.");
     Server->findClientPort();
 
-    TmpFontDir = ChildRoot + JailUtil::CHILDROOT_TMP_INCOMING_PATH;
+    TmpFontDir = SysTemplate + "/tmpfonts";
 
     // Start the internal prisoner server and spawn forkit,
     // which in turn forks first child.
@@ -5634,9 +5514,9 @@ int COOLWSD::innerMain()
     JailUtil::cleanupJails(ChildRoot);
 #endif // !MOBILEAPP
 
-    const int returnValue = UnitBase::uninit();
+    int returnValue = EX_OK;
+    UnitWSD::get().returnValue(returnValue);
 
-    UnitBase::uninit();
     LOG_INF("Process [coolwsd] finished with exit status: " << returnValue);
 
     // At least on centos7, Poco deadlocks while
@@ -5717,7 +5597,7 @@ int COOLWSD::main(const std::vector<std::string>& /*args*/)
 
     cleanup();
 
-    returnValue = UnitBase::uninit();
+    UnitWSD::get().returnValue(returnValue);
 
     LOG_INF("Process [coolwsd] finished with exit status: " << returnValue);
 
@@ -5726,11 +5606,6 @@ int COOLWSD::main(const std::vector<std::string>& /*args*/)
 #endif
 
     return returnValue;
-}
-
-int COOLWSD::getClientPortNumber()
-{
-    return ClientPortNumber;
 }
 
 #if !MOBILEAPP
@@ -5744,6 +5619,11 @@ std::vector<std::shared_ptr<DocumentBroker>> COOLWSD::getBrokersTestOnly()
     for (auto& brokerIt : DocBrokers)
         result.push_back(brokerIt.second);
     return result;
+}
+
+int COOLWSD::getClientPortNumber()
+{
+    return ClientPortNumber;
 }
 
 std::set<pid_t> COOLWSD::getKitPids()
