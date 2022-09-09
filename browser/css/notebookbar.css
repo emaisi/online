@@ -3,6 +3,8 @@
 
 .notebookbar-tabs-container {
 	display: inline-flex;
+	flex: 1 1 auto;
+	margin-inline-start: 5px;
 }
 
 .ui-tabs.notebookbar {
@@ -554,58 +556,58 @@
 	font-size: calc(var(--default-font-size)*1.5);
 }
 
-[class*='as-odt-submenu-icon'] {
+.downloadas-odt-submenu-icon {
 	background: url('images/lc_downloadas-odt.svg') center;
 }
 
-[class*='as-ods-submenu-icon'] {
+.downloadas-ods-submenu-icon {
 	background: url('images/lc_downloadas-ods.svg') center;
 }
 
-[class*='as-odp-submenu-icon'] {
+.downloadas-odp-submenu-icon {
 	background: url('images/lc_downloadas-odp.svg') center;
 }
 
-[class*='as-odg-submenu-icon'] {
+.downloadas-odg-submenu-icon {
 	background: url('images/lc_downloadas-odg.svg') center;
 }
 
-[class*='as-rtf-submenu-icon'] {
+.downloadas-rtf-submenu-icon {
 	background: url('images/lc_downloadas-rtf.svg') center;
 }
 
-[class*='as-doc-submenu-icon'] {
+.downloadas-doc-submenu-icon {
 	background: url('images/lc_downloadas-doc.svg') center;
 }
 
-[class*='as-docx-submenu-icon'] {
+.downloadas-docx-submenu-icon {
 	background: url('images/lc_downloadas-docx.svg') center;
 }
 
-[class*='as-pdf-submenu-icon'] {
+.downloadas-pdf-submenu-icon {
 	background: url('images/lc_downloadas-pdf.svg') center;
 }
 
-[class*='as-epub-submenu-icon'] {
+.downloadas-epub-submenu-icon {
 	background: url('images/lc_downloadas-epub.svg') center;
 }
 
-[class*='as-xls-submenu-icon'] {
+.downloadas-xls-submenu-icon {
 	background: url('images/lc_downloadas-xls.svg') center;
 }
 
-[class*='as-xlsx-submenu-icon'] {
+.downloadas-xlsx-submenu-icon {
 	background: url('images/lc_downloadas-xlsx.svg') center;
 }
 
-[class*='as-csv-submenu-icon'] {
+.downloadas-csv-submenu-icon {
 	background: url('images/lc_downloadas-csv.svg') center;
 }
 
-[class*='as-ppt-submenu-icon'] {
+.downloadas-ppt-submenu-icon {
 	background: url('images/lc_downloadas-ppt.svg') center;
 }
 
-[class*='as-pptx-submenu-icon'] {
+.downloadas-pptx-submenu-icon {
 	background: url('images/lc_downloadas-pptx.svg') center;
 }
