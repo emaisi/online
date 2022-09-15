@@ -79,21 +79,6 @@ L.TextInput = L.Layer.extend({
 			'?':  [ 63, 0,      0, 4287 ],
 			'_':  [ 95, 0,      0, 5384 ]
 		};
-
-		// unoKeyCode values of the digits.
-		this._unoKeyMap = {
-			'48': 96,   // 0
-			'49': 97,   // 1
-			'50': 98,   // 2
-			'51': 99,   // 3
-			'52': 100,  // 4
-			'53': 101,  // 5
-			'54': 102,  // 6
-			'55': 103,  // 7
-			'56': 104,  // 8
-			'57': 105   // 9
-		};
-
 	},
 
 	onAdd: function() {
@@ -221,7 +206,7 @@ L.TextInput = L.Layer.extend({
 		// Clicking or otherwise focusing the map should focus on the clipboard
 		// container in order for the user to input text (and on-screen keyboards
 		// to pop-up), unless the document is read only.
-		if (!this._map.isEditMode()) {
+		if (!this._map.isPermissionEdit()) {
 			this._setAcceptInput(false);
 			// on clicking focus is important
 			// specially in chrome once document loses focus it never gets it back
@@ -578,12 +563,6 @@ L.TextInput = L.Layer.extend({
 		this._lastContent = oldContent;
 	},
 
-	_isDigit: function(asciiChar) {
-		if (asciiChar >= 48 && asciiChar <= 57)
-			return true;
-		return false;
-	},
-
 	// Fired when text has been inputed, *during* and after composing/spellchecking
 	_onInput: function(ev) {
 		if (this._map.uiManager.isUIBlocked())
@@ -690,7 +669,7 @@ L.TextInput = L.Layer.extend({
 			var ch = docLayer._mentionText.pop();
 			if (ch === '@')
 				this._map.fire('closementionpopup', { 'typingMention': false });
-			else
+			else 	
 				this._map.fire('sendmentiontext', {data: docLayer._mentionText});
 		}
 
@@ -701,15 +680,7 @@ L.TextInput = L.Layer.extend({
 		this._lastContent = content;
 
 		if (newText.length > 0) {
-			// When the cell formatted as percent, to trig percentage sign addition
-			// automatically we send the first digit character as KeyEvent.
-			if (this._map.getDocType() === 'spreadsheet' &&
-			    content.length === 1 && ev.inputType === 'insertText' &&
-				this._isDigit(newText) && window.mode.isDesktop()) {
-				this._sendKeyEvent(newText, this._unoKeyMap[newText], 'input');
-			}
-			else
-				this._sendText(this.codePointsToString(newText));
+			this._sendText(this.codePointsToString(newText));
 		}
 
 		// was a 'delete' and we need to reset world.
@@ -735,7 +706,7 @@ L.TextInput = L.Layer.extend({
 				}
 			}
 		}
-
+		
 		if (ev.data === '@' && this._map.getDocType() === 'text') {
 			docLayer._mentionText.push(ev.data);
 			docLayer._typingMention = true;
@@ -772,6 +743,7 @@ L.TextInput = L.Layer.extend({
 			// The composition messages doesn't play well with just a line break,
 			// therefore send a keystroke.
 			var unoKeyCode = this._linebreakHint ? 5376 : 1280;
+			this.closeMention = true;
 			this._sendKeyEvent(13, unoKeyCode);
 			this._emptyArea();
 		} else {
@@ -828,6 +800,11 @@ L.TextInput = L.Layer.extend({
 		this._fancyLog('empty-area-end');
 
 		this._ignoreInputCount--;
+
+		var mentionPopup = L.DomUtil.get('mentionPopup');
+		if (mentionPopup && this.closeMention) {
+			this._map.fire('closementionpopup',{ 'typingMention': false });
+		}
 	},
 
 	_onCompositionStart: function(/*ev*/) {
@@ -887,12 +864,13 @@ L.TextInput = L.Layer.extend({
 					ev.preventDefault();
 					ev.stopPropagation();
 				}
+				this.closeMention = false;
 			} else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight' ||
 				ev.key === 'ArrowUp' || ev.key === 'Home' ||
 				ev.key === 'End' || ev.key === 'PageUp' ||
-				ev.key === 'PageDown' || ev.key === 'Enter' ||
-				ev.key === 'Escape' || ev.key === 'Control' ||
-				ev.key === 'Tab') {
+				ev.key === 'PageDown' || ev.key === 'Enter') {
+				this.closeMention = true;
+			} else if (ev.key === 'Escape') {
 				this._map.fire('closementionpopup', { 'typingMention': false });
 			}
 		}
@@ -908,11 +886,13 @@ L.TextInput = L.Layer.extend({
 			return;
 
 		this._map.notifyActive();
-		if (!this._isComposing && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight' ||
-			ev.key === 'ArrowUp' || ev.key === 'ArrowDown' ||
-			ev.key === 'Home' || ev.key === 'End' ||
-			ev.key === 'PageUp' || ev.key === 'PageDown'))
+		if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight' ||
+		    ev.key === 'ArrowUp' || ev.key === 'ArrowDown' ||
+		    ev.key === 'Home' || ev.key === 'End' ||
+		    ev.key === 'PageUp' || ev.key === 'PageDown'
+		) {
 			this._emptyArea();
+		}
 	},
 
 	// Used in the deleteContentBackward for deleting multiple characters with a single
