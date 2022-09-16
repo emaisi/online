@@ -84,7 +84,8 @@ L.Control.ContextMenu = L.Control.extend({
 			// text
 			'SpellingAndGrammarDialog', 'FontDialog', 'FontDialogForParagraph',
 			// spreadsheet
-			'FormatCellDialog', 'DataDataPilotRun'
+			'FormatCellDialog', 'DataDataPilotRun',
+			'GroupSparklines', 'UngroupSparklines'
 		]
 	},
 
