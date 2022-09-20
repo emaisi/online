@@ -17,7 +17,7 @@ Vendor:         %{vendor}
 Summary:        Collabora Online WebSocket Daemon
 License:        EULA
 Source0:        coolwsd-@PACKAGE_VERSION@.tar.gz
-BuildRequires:  libcap-devel libpng-devel pam-devel gcc-c++ cppunit-devel pam-devel fontconfig make
+BuildRequires:  libcap-devel libpng-devel pam-devel gcc-c++ cppunit-devel pam-devel fontconfig make libzstd-devel
 
 # Red Hat and CentOS
 %if 0%{?rhel} == 7
@@ -37,7 +37,7 @@ Requires:       collaboraoffice collaboraoffice-ure collaboraofficebasis-core co
 Requires(post): coreutils grep sed cpio
 %if 0%{?rhel}
 # coolwsd dependencies
-Requires:       systemd expat keyutils-libs krb5-libs libattr libcap libcom_err libgcc libpng libselinux openssh-clients openssl-libs pcre xz-libs zlib
+Requires:       systemd expat keyutils-libs krb5-libs libattr libcap libcom_err libgcc libpng libselinux openssh-clients openssl-libs pcre xz-libs zlib libzstd
 # Collabora Office dependencies (unfortunately Collabora Office RPM packages do not have real dependencies)
 Requires:       expat fontconfig freetype libuuid bzip2-libs
 %endif
