@@ -314,7 +314,7 @@ m4_ifelse(MOBILEAPP,[true],
       window.socketProxy = false;
       window.tileSize = 256;
       window.uiDefaults = {};
-      window.useIntegrationTheme = 'true';
+      window.useIntegrationTheme = 'false';
       window.checkFileInfoOverride = {};],
      [window.host = '%HOST%';
       window.serviceRoot = '%SERVICE_ROOT%';
@@ -340,8 +340,7 @@ m4_ifelse(MOBILEAPP,[true],
       window.tileSize = 256;
       window.groupDownloadAsForNb = %GROUP_DOWNLOAD_AS%;
       window.uiDefaults = %UI_DEFAULTS%;
-      window.checkFileInfoOverride = %CHECK_FILE_INFO_OVERRIDE%;
-	  window.deeplEnabled = %DEEPL_ENABLED%;])
+      window.checkFileInfoOverride = %CHECK_FILE_INFO_OVERRIDE%;])
 
 // This is GLOBAL_JS:
 m4_syscmd([cat ]GLOBAL_JS)m4_dnl
