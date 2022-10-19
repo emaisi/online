@@ -21,7 +21,6 @@
     "json-js": "1.1.2",
     "l10n-for-node": "0.0.1",
     "mocha": "8.2.1",
-    "fzstd": "0.0.4",
     "select2": "4.0.13",
     "shrinkpack": "1.0.0-alpha",
     "smartmenus": "1.0.0",
@@ -33,7 +32,7 @@
     "uglifyify": "5.0.2",
     "vex-js": "4.1.0",
     "pako": "2.0.4",
-    "canvas": "^2.6.1"
+	"canvas": "^2.6.1"
   },
   "repository": {
     "type": "git",
@@ -47,7 +46,6 @@
   ],
   "license": "BSD-2-Clause",
   "dependencies": {
-    "canvas": "^2.6.1",
     "jsdom": "^16.4.0",
     "tmp": "^0.2.1"
   },
