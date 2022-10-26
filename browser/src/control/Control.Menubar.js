@@ -1566,6 +1566,7 @@ L.Control.Menubar = L.Control.extend({
 			} else { // eslint-disable-next-line no-lonely-if
 				if (type === 'unocommand') { // disable all uno commands
 					$(aItem).addClass('disabled');
+					aItem.title = _('Read-only mode');
 				} else if (type === 'action') { // disable all except allowedViewModeActions
 					var found = false;
 					for (var i in self.options.allowedViewModeActions) {
@@ -1578,6 +1579,7 @@ L.Control.Menubar = L.Control.extend({
 						found = false;
 					if (!found) {
 						$(aItem).addClass('disabled');
+						aItem.title = _('Read-only mode');
 					} else {
 						$(aItem).removeClass('disabled');
 					}
