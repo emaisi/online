@@ -314,8 +314,9 @@ m4_ifelse(MOBILEAPP,[true],
       window.socketProxy = false;
       window.tileSize = 256;
       window.uiDefaults = {};
-      window.useIntegrationTheme = 'true';
-      window.checkFileInfoOverride = {};],
+      window.useIntegrationTheme = 'false';
+      window.checkFileInfoOverride = {};
+	  window.deeplEnabled = %DEEPL_ENABLED%;],
      [window.host = '%HOST%';
       window.serviceRoot = '%SERVICE_ROOT%';
       window.hexifyUrl = %HEXIFY_URL%;
@@ -340,7 +341,8 @@ m4_ifelse(MOBILEAPP,[true],
       window.tileSize = 256;
       window.groupDownloadAsForNb = %GROUP_DOWNLOAD_AS%;
       window.uiDefaults = %UI_DEFAULTS%;
-      window.checkFileInfoOverride = %CHECK_FILE_INFO_OVERRIDE%;])
+      window.checkFileInfoOverride = %CHECK_FILE_INFO_OVERRIDE%;
+	  window.deeplEnabled = %DEEPL_ENABLED%;])
 
 // This is GLOBAL_JS:
 m4_syscmd([cat ]GLOBAL_JS)m4_dnl
@@ -361,16 +363,19 @@ brandingLink.setAttribute("type", "text/css");
 
 var theme_name = document.getElementsByName("theme")[[0]] ? document.getElementsByName("theme")[[0]].value : '';
 var theme_prefix = '';
-if(theme_name !== '') {
+if(window.useIntegrationTheme === 'true' && theme_name !== '') {
     theme_prefix = theme_name + '/';
 }
 
 if (window.mode.isMobile()) {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-mobile.css');]
+    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-mobile.css');]
 } else if (window.mode.isTablet()) {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-tablet.css');]
+    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-tablet.css');]
 } else {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-desktop.css');]
+    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[' + theme_prefix + 'branding-desktop.css');]
 }
 document.getElementsByTagName("head")[[0]].appendChild(link);
 document.getElementsByTagName("head")[[0]].appendChild(brandingLink);
