@@ -22,7 +22,7 @@ class UnitWopiUnlock : public WopiTestServer
     STATE_ENUM(Phase, Load, Lock, Modify, Upload, Unlock, Done) _phase;
 
     std::string _lockState;
-    std::string _lockToken;
+    std::string _lockString;
     std::size_t _sessionCount;
 
 public:
@@ -60,19 +60,17 @@ public:
         {
             LOK_ASSERT_EQUAL_MESSAGE("Expected X-WOPI-Override:LOCK", std::string("LOCK"),
                                      newLockState);
-            LOK_ASSERT_MESSAGE("Lock token cannot be empty", !lock.empty());
+            LOK_ASSERT_MESSAGE("Lock String cannot be empty", !lock.empty());
             _lockState = newLockState;
-            _lockToken = lock;
+            _lockString = lock;
             TRANSITION_STATE(_phase, Phase::Modify);
         }
         else if (_phase == Phase::Unlock)
         {
             LOK_ASSERT_EQUAL_MESSAGE("Expected X-WOPI-Override:UNLOCK", std::string("UNLOCK"),
                                      newLockState);
-            LOK_ASSERT_EQUAL_MESSAGE("Document is not unlocked", std::string("LOCK"), _lockState);
-            LOK_ASSERT_EQUAL_MESSAGE("The lock token has changed", _lockToken, lock);
-
-            TRANSITION_STATE(_phase, Phase::Done);
+            LOK_ASSERT_MESSAGE("Document is not unlocked", _lockState != "UNLOCK");
+            LOK_ASSERT_EQUAL(_lockString, lock);
             exitTest(TestResult::Ok);
         }
         else
