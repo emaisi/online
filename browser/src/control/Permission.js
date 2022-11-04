@@ -21,8 +21,7 @@ L.Map.include({
 		//
 		// For mobile we need to display the edit button for all the cases except for PDF
 		// we offer save-as to another place where the user can edit the document
-		var isPDF = app.file.fileBasedView && app.file.editComment;
-		if (!isPDF && (this._shouldStartReadOnly() || window.mode.isMobile() || window.mode.isTablet())) {
+		if (!app.file.fileBasedView && (this._shouldStartReadOnly() || window.mode.isMobile() || window.mode.isTablet())) {
 			button.show();
 		} else {
 			button.hide();
@@ -246,15 +245,20 @@ L.Map.include({
 		this.dragging.enable();
 	},
 
+	// If document can be edited or not (i.e: PDF can not be edited)
+	isDocEditable: function() {
+		return this.options.permission === 'edit';
+	},
+
 	// Can user make changes to the document or not
 	// i.e: user can not make changes(even can not add comments) is document is shared as read only
 	canUserWrite: function() {
-		return app.file.permission === 'edit';
+		return window.docPermission === 'edit';
 	},
 
 	// If user has write access he can always add comments
 	isPermissionEditForComments: function() {
-		return this.canUserWrite() || app.file.editComment;
+		return this.canUserWrite();
 	},
 
 	// Is user currently in read only mode (i.e: initial mobile read only view mode, user may have write access)
