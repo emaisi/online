@@ -778,6 +778,8 @@ int main(int argc, char** argv)
 
     const int returnValue = UnitBase::uninit();
 
+    UnitBase::uninit();
+
     LOG_INF("ForKit process finished.");
     Util::forcedExit(returnValue);
 }
