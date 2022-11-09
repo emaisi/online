@@ -20,7 +20,6 @@
 #include <Poco/JSON/Object.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Util/LayeredConfiguration.h>
-#include <Poco/Util/Application.h>
 
 #include "Log.hpp"
 #include "Util.hpp"
@@ -33,9 +32,7 @@ UnitWSD *GlobalWSD = nullptr;
 UnitTool *GlobalTool = nullptr;
 UnitBase** UnitBase::GlobalArray = nullptr;
 int UnitBase::GlobalIndex = -1;
-char* UnitBase::UnitLibPath = nullptr;
-void* UnitBase::DlHandle = nullptr;
-UnitBase::TestResult UnitBase::GlobalResult = UnitBase::TestResult::Ok;
+char * UnitBase::UnitLibPath;
 static std::thread TimeoutThread;
 static std::atomic<bool> TimeoutThreadRunning(false);
 std::timed_mutex TimeoutThreadMutex;
@@ -46,8 +43,8 @@ bool EnableExperimental = false;
 UnitBase** UnitBase::linkAndCreateUnit(UnitType type, const std::string& unitLibPath)
 {
 #if !MOBILEAPP
-    DlHandle = dlopen(unitLibPath.c_str(), RTLD_GLOBAL|RTLD_NOW);
-    if (!DlHandle)
+    void *dlHandle = dlopen(unitLibPath.c_str(), RTLD_GLOBAL|RTLD_NOW);
+    if (!dlHandle)
     {
         LOG_ERR("Failed to load " << unitLibPath << ": " << dlerror());
         return nullptr;
@@ -60,34 +57,8 @@ UnitBase** UnitBase::linkAndCreateUnit(UnitType type, const std::string& unitLib
     switch (type)
     {
         case UnitType::Wsd:
-        {
-            // Try the multi-test version first.
-            CreateUnitHooksFunctionMulti* createHooksMulti =
-                reinterpret_cast<CreateUnitHooksFunctionMulti*>(
-                    dlsym(DlHandle, "unit_create_wsd_multi"));
-            if (createHooksMulti)
-            {
-                UnitBase** hooks = createHooksMulti();
-                if (hooks)
-                {
-                    std::ostringstream oss;
-                    oss << "Loaded UnitTest [" << unitLibPath << "] with: ";
-                    for (int i = 0; hooks[i] != nullptr; ++i)
-                    {
-                        if (i)
-                            oss << ", ";
-                        oss << hooks[i]->getTestname();
-                    }
-
-                    LOG_INF(oss.str());
-                    return hooks;
-                }
-            }
-
-            // Fallback.
             symbol = "unit_create_wsd";
             break;
-        }
         case UnitType::Kit:
             symbol = "unit_create_kit";
             break;
@@ -95,42 +66,22 @@ UnitBase** UnitBase::linkAndCreateUnit(UnitType type, const std::string& unitLib
             symbol = "unit_create_tool";
             break;
     }
-
-    CreateUnitHooksFunction* createHooks =
-        reinterpret_cast<CreateUnitHooksFunction*>(dlsym(DlHandle, symbol));
-
+    CreateUnitHooksFunction* createHooks;
+    createHooks = reinterpret_cast<CreateUnitHooksFunction *>(dlsym(dlHandle, symbol));
     if (!createHooks)
     {
         LOG_ERR("No " << symbol << " symbol in " << unitLibPath);
         return nullptr;
     }
-
     UnitBase* hooks = createHooks();
     if (hooks)
-        return new UnitBase* [2] { hooks, nullptr };
-
-    LOG_ERR("No wsd unit-tests found in " << unitLibPath);
+    {
+        hooks->setHandle(dlHandle);
+        return new UnitBase* [1] { hooks };
+    }
 #endif
 
     return nullptr;
-}
-
-void UnitBase::filter()
-{
-    // For now, support only filtering.
-    static const char* TestOptions = getenv("COOL_TEST_OPTIONS");
-    if (TestOptions == nullptr)
-        return;
-
-    const std::string filter = Util::toLower(TestOptions);
-    for (; GlobalArray[GlobalIndex] != nullptr; ++GlobalIndex)
-    {
-        const std::string& name = GlobalArray[GlobalIndex]->getTestname();
-        if (strstr(Util::toLower(name).c_str(), filter.c_str()))
-            break;
-
-        LOG_INF("Skipping test [" << name << "] per filter [" << TestOptions << "]");
-    }
 }
 
 bool UnitBase::init(UnitType type, const std::string &unitLibPath)
@@ -144,23 +95,17 @@ bool UnitBase::init(UnitType type, const std::string &unitLibPath)
 #endif
 
     GlobalArray = nullptr;
-    GlobalIndex = -1;
     if (!unitLibPath.empty())
     {
         GlobalArray = linkAndCreateUnit(type, unitLibPath);
         if (GlobalArray)
         {
-            // Filter tests.
             GlobalIndex = 0;
-            filter();
-
             UnitBase* instance = GlobalArray[GlobalIndex];
             if (instance)
             {
                 rememberInstance(type, instance);
-                TST_LOG_NAME("UnitBase",
-                             "Starting test #1: " << GlobalArray[GlobalIndex]->getTestname());
-                instance->initialize();
+                LOG_DBG(instance->getTestname() << ": Initializing");
 
                 if (instance && type == UnitType::Kit)
                 {
@@ -196,17 +141,17 @@ bool UnitBase::init(UnitType type, const std::string &unitLibPath)
     {
         case UnitType::Wsd:
             rememberInstance(UnitType::Wsd, new UnitWSD("UnitWSD"));
-            GlobalArray = new UnitBase* [2] { GlobalWSD, nullptr };
+            GlobalArray = new UnitBase* [1] { GlobalWSD };
             GlobalIndex = 0;
             break;
         case UnitType::Kit:
             rememberInstance(UnitType::Kit, new UnitKit("UnitKit"));
-            GlobalArray = new UnitBase* [2] { GlobalKit, nullptr };
+            GlobalArray = new UnitBase* [1] { GlobalKit };
             GlobalIndex = 0;
             break;
         case UnitType::Tool:
             rememberInstance(UnitType::Tool, new UnitTool("UnitTool"));
-            GlobalArray = new UnitBase* [2] { GlobalTool, nullptr };
+            GlobalArray = new UnitBase* [1] { GlobalTool };
             GlobalIndex = 0;
             break;
         default:
@@ -259,57 +204,10 @@ void UnitBase::rememberInstance(UnitType type, UnitBase* instance)
     }
 }
 
-int UnitBase::uninit()
-{
-    TST_LOG_NAME("UnitBase", "Uninitializing unit-tests: "
-                                 << (GlobalResult == TestResult::Ok ? "SUCCESS" : "FAILED"));
-
-    if (GlobalArray)
-    {
-        // By default, this will check _setRetValue and copy _retValue to the arg.
-        // But we call it to trigger overrides and to perform cleanups.
-        int retValue = GlobalResult == TestResult::Ok ? EX_OK : EX_SOFTWARE;
-        if (GlobalArray[GlobalIndex] != nullptr)
-            GlobalArray[GlobalIndex]->returnValue(retValue);
-        if (retValue)
-            GlobalResult = TestResult::Failed;
-
-        for (int i = 0; GlobalArray[i] != nullptr; ++i)
-        {
-            delete GlobalArray[i];
-        }
-
-        delete[] GlobalArray;
-        GlobalArray = nullptr;
-    }
-
-    GlobalIndex = -1;
-
-    free(UnitBase::UnitLibPath);
-    UnitBase::UnitLibPath = nullptr;
-
-    GlobalKit = nullptr;
-    GlobalWSD = nullptr;
-    GlobalTool = nullptr;
-
-    // Close the DLL last, after deleting the test instances.
-    if (DlHandle)
-        dlclose(DlHandle);
-    DlHandle = nullptr;
-
-    return GlobalResult == TestResult::Ok ? EX_OK : EX_SOFTWARE;
-}
-
-void UnitBase::initialize()
-{
-    assert(DlHandle != nullptr && "Invalid handle to set");
-    LOG_TST("==================== Starting [" << getTestname() << "] ====================");
-    _socketPoll->startThread();
-}
-
 bool UnitBase::isUnitTesting()
 {
-    return DlHandle;
+    return GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex] &&
+           GlobalArray[GlobalIndex]->_dlHandle;
 }
 
 void UnitBase::setTimeout(std::chrono::milliseconds timeoutMilliSeconds)
@@ -323,6 +221,10 @@ UnitBase::~UnitBase()
 {
     LOG_TST(getTestname() << ": ~UnitBase: " << (_retValue ? "FAILED" : "SUCCESS"));
 
+// FIXME: we should really clean-up properly.
+//    if (_dlHandle)
+//        dlclose(_dlHandle);
+    _dlHandle = nullptr;
     _socketPoll->joinThread();
 }
 
@@ -458,7 +360,7 @@ UnitKit& UnitKit::get()
     return *GlobalKit;
 }
 
-void UnitBase::exitTest(TestResult result, const std::string& reason)
+void UnitBase::exitTest(TestResult result)
 {
     if (isFinished())
     {
@@ -470,53 +372,17 @@ void UnitBase::exitTest(TestResult result, const std::string& reason)
     }
 
     if (result == TestResult::Ok)
-    {
         LOG_TST(getTestname() << ": SUCCESS: exitTest: " << testResultAsString(result)
-                              << (reason.empty() ? "" : ": " + reason));
-    }
+                              << ". Flagging to shutdown.");
     else
-    {
         LOG_TST("ERROR " << getTestname() << ": FAILURE: exitTest: " << testResultAsString(result)
-                         << (reason.empty() ? "" : ": " + reason));
-
-        _retValue = EX_SOFTWARE;
-        if (GlobalResult == TestResult::Ok)
-            GlobalResult = result;
-    }
+                         << ". Flagging to shutdown.");
 
     _setRetValue = true;
-
-    // Check if we have more tests, but keep the current index if it's the last.
-    if (GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex + 1])
-    {
-        // By default, this will check _setRetValue and copy _retValue to the arg.
-        // But we call it to trigger overrides and to perform cleanups.
-        returnValue(_retValue);
-
-        // We have more tests.
-        ++GlobalIndex;
-        filter();
-
-        if (GlobalArray[GlobalIndex] != nullptr)
-        {
-            rememberInstance(_type, GlobalArray[GlobalIndex]);
-
-            LOG_TST("Starting test #" << GlobalIndex + 1 << ": "
-                                    << GlobalArray[GlobalIndex]->getTestname());
-            if (GlobalWSD)
-                GlobalWSD->configure(Poco::Util::Application::instance().config());
-            GlobalArray[GlobalIndex]->initialize();
-            return;
-        }
-    }
-
-    // We are done with all the tests.
-    TST_LOG_NAME("UnitBase", getTestname()
-                                 << " was the last test. Finishing "
-                                 << (GlobalResult == TestResult::Ok ? "SUCCESS" : "FAILED"));
-
+    _retValue = result == TestResult::Ok ? EX_OK : EX_SOFTWARE;
 #if !MOBILEAPP
-    LOG_INF("Setting ShutdownRequestFlag as there are no more tests");
+    LOG_INF("Setting ShutdownRequestFlag: " << getTestname() << " test has finished: "
+                                            << (_retValue ? "FAILED" : "SUCCESS"));
     SigUtil::setTerminationFlag(); // And wakupWorld.
 #else
     SocketPoll::wakeupWorld();
@@ -543,14 +409,13 @@ void UnitBase::returnValue(int &retValue)
     TimeoutThreadMutex.unlock();
     if (TimeoutThread.joinable())
         TimeoutThread.join();
-
-    LOG_TST("==================== Finished [" << getTestname() << "] ====================");
 }
 
 void UnitKit::returnValue(int &retValue)
 {
     UnitBase::returnValue(retValue);
 
+    delete GlobalKit;
     GlobalKit = nullptr;
 }
 
@@ -558,6 +423,7 @@ void UnitWSD::returnValue(int &retValue)
 {
     UnitBase::returnValue(retValue);
 
+    delete GlobalWSD;
     GlobalWSD = nullptr;
 }
 

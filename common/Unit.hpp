@@ -50,9 +50,7 @@ class Session;
 class StorageBase;
 
 typedef UnitBase *(CreateUnitHooksFunction)();
-typedef UnitBase**(CreateUnitHooksFunctionMulti)();
 extern "C" { UnitBase *unit_create_wsd(void); }
-extern "C" { UnitBase** unit_create_wsd_multi(void); }
 extern "C" { UnitBase *unit_create_kit(void); }
 extern "C" { typedef struct _LibreOfficeKit LibreOfficeKit; }
 
@@ -100,23 +98,26 @@ protected:
     }
 
     /// Encourages the process to exit with this value (unless hooked)
-    void exitTest(TestResult result, const std::string& reason = std::string());
+    void exitTest(TestResult result);
 
     /// Fail the test with the given reason.
     void failTest(const std::string& reason)
     {
-        exitTest(TestResult::Failed, reason);
+        LOG_TST("FAILURE: " << getTestname() << " finished: " << reason);
+        exitTest(TestResult::Failed);
     }
 
     /// Pass the test with the given optional reason.
     void passTest(const std::string& reason = std::string())
     {
-        exitTest(TestResult::Ok, reason);
+        LOG_TST("SUCCESS: " << getTestname() << " finished: " << reason);
+        exitTest(TestResult::Ok);
     }
 
     /// Construct a UnitBase instance with a default name.
     explicit UnitBase(const std::string& name, UnitType type)
-        : _setRetValue(false)
+        : _dlHandle(nullptr)
+        , _setRetValue(false)
         , _retValue(0)
         , _timeoutMilliSeconds(std::chrono::seconds(30))
         , _type(type)
@@ -131,22 +132,16 @@ public:
     /// Load unit test hook shared library from this path
     static bool init(UnitType type, const std::string& unitLibPath);
 
-    /// Uninitialize the unit-test and return the global exit code.
-    /// Returns 0 on success.
-    static int uninit();
-
     /// Do we have a unit test library hooking things & loaded
     static bool isUnitTesting();
 
     /// Tweak the return value from the process.
     virtual void returnValue(int& /* retValue */);
 
-    /// Data-loss detection. Override if expected/intentional.
-    /// Returns true if we failed, false otherwise.
-    virtual bool onDataLoss(const std::string& reason)
+    /// Trigger a failure due to any reason.
+    virtual void fail(const std::string& reason)
     {
         failTest(reason);
-        return failed();
     }
 
     /// Input message either for WSD or Kit
@@ -250,14 +245,16 @@ public:
     std::shared_ptr<SocketPoll> socketPoll() { return _socketPoll; }
 
 private:
-    /// Initialize the test.
-    virtual void initialize();
+    void setHandle(void *dlHandle)
+    {
+        assert(_dlHandle == nullptr && "setHandle must only be called once");
+        assert(dlHandle != nullptr && "Invalid handle to set");
+        _dlHandle = dlHandle;
+        _socketPoll->startThread();
+    }
 
     /// Dynamically load the unit-test .so.
     static UnitBase** linkAndCreateUnit(UnitType type, const std::string& unitLibPath);
-
-    /// Based on COOL_TEST_OPTIONS envar, filter the tests.
-    static void filter();
 
     /// Handles messages from LOKit.
     virtual bool onFilterLOKitMessage(const std::shared_ptr<Message>& /*message*/) { return false; }
@@ -275,11 +272,10 @@ private:
     /// setup global instance for get() method
     static void rememberInstance(UnitType type, UnitBase* instance);
 
-    static void* DlHandle; //< The handle to the unit-test .so.
+    void *_dlHandle;
     static char *UnitLibPath;
     static UnitBase** GlobalArray; //< All the tests.
     static int GlobalIndex; //< The index of the current test.
-    static TestResult GlobalResult; //< The result of all tests. Latches at first failure.
 
     bool _setRetValue;
     int _retValue;
@@ -333,10 +329,7 @@ public:
         try
         {
             // Invoke the test, expect no exceptions.
-            if (!isFinished())
-            {
-                invokeWSDTest();
-            }
+            invokeWSDTest();
         }
         catch (const Poco::Exception& ex)
         {
