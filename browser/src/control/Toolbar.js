@@ -862,6 +862,16 @@ L.Map.include({
 				}
 			}
 			break;
+		case 'zoteroAddEditCitation':
+			{
+				this.zotero.handleItemList();
+			}
+			break;
+		case 'zoteroSetDocPrefs':
+			{
+				this.zotero.handleStyleList();
+			}
+			break;
 		}
 	},
 });
