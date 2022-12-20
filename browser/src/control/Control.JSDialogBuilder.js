@@ -1803,6 +1803,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	},
 
 	_listboxControl: function(parentContainer, data, builder) {
+		var fontnamecombobox = data.id === 'fontnamecombobox';
 		var title = data.text;
 		var selectedEntryIsString = false;
 		if (data.selectedEntries) {
@@ -1830,36 +1831,51 @@ L.Control.JSDialogBuilder = L.Control.extend({
 
 		$(listbox).change(function() {
 			if ($(this).val())
-				builder.callback('combobox', 'selected', data, $(this).val()+ ';' + $(this).children('option:selected').text(), builder);
+				builder.callback('combobox', 'selected', data, $(this).val(), builder);
 		});
 		var hasSelectedEntry = false;
 		if (typeof(data.entries) === 'object') {
+			var windowZhFonts = [{en: 'SimSun', cn: '宋体'}, {en: 'NSimSun', cn: '新宋体'},{en: 'FangSong', cn: '仿宋'},{en: 'KaiTi', cn: '楷体'},{en: 'SimHei', cn: '黑体'},{en: 'Microsoft YaHei', cn: '微软雅黑'},{en: 'Microsoft YaHei Light', cn: '微软雅黑Light'},{en: 'Microsoft YaHei UI', cn: '微软雅黑UI'},{en: 'Microsoft YaHei UI Light', cn: '微软雅黑UILight'}];
+			var windowZhFontsStr = 'SimSun,NSimSun,FangSong,KaiTi,SimHei,Microsoft YaHei,Microsoft YaHei Light,Microsoft YaHei UI,Microsoft YaHei UI Light';
+			var windowZhFontsOptions = {};
+			if (fontnamecombobox) {
+				for (var i = 0; i < windowZhFonts.length; ++i) {
+					var option = L.DomUtil.create('option', '', listbox);
+					option.value = windowZhFonts[i].en;
+					option.innerText = windowZhFonts[i].cn;
+					windowZhFontsOptions[option.value] = option;
+				}
+			}
+
 			for (var index in data.entries) {
 				var isSelected = false;
+				var value = data.entries[index];
 				if ((data.selectedEntries && index == data.selectedEntries[0])
-					|| (data.selectedEntries && selectedEntryIsString && data.entries[index] === data.selectedEntries[0])
-					|| data.entries[index] == title) {
+					|| (data.selectedEntries && selectedEntryIsString && value === data.selectedEntries[0])
+					|| value == title) {
 					isSelected = true;
 				}
-
-				var option = L.DomUtil.create('option', '', listbox);
-				option.value = index;
-				option.innerText = data.entries[index];
-				if (isSelected) {
-					option.selected = true;
-					hasSelectedEntry = true;
+				if (fontnamecombobox && windowZhFontsStr.indexOf(value) != -1) {
+					var option = windowZhFontsOptions[value];
+					option.value = index + ';' + option.value;
+					if (isSelected) {
+						option.selected = true;
+						hasSelectedEntry = true;
+					}
+				} else {
+					var option = L.DomUtil.create('option', '', listbox);
+					option.value = index+';'+value;
+					option.innerText = value;
+					if (isSelected) {
+						option.selected = true;
+						hasSelectedEntry = true;
+					}
 				}
 			}
 		}
 		// no selected entry; set the visible value to empty string unless the font is not included in the entries
 		if (!hasSelectedEntry) {
-			if (title) {
-				var newOption = L.DomUtil.create('option', '', listbox);
-				newOption.value = ++index;
-				newOption.innerText = title;
-				newOption.selected = true;
-			} else
-				$(listbox).val('');
+			$(listbox).val('');
 		}
 
 		return false;
@@ -3025,6 +3041,11 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	},
 
 	_menuItemHandler: function(parentContainer, data, builder) {
+		var kishCommandName = data.command && data.command.startsWith('.uno:') ? data.command.substring('.uno:'.length) : data.id;
+		if (builder.map.getDocType() === 'spreadsheet' &&  kishCommandName && kishCommandName.toLowerCase() == 'delete') {
+			return;
+		}
+
 		var title = data.text;
 		// separator
 		if (title === '') {
