@@ -233,8 +233,19 @@ L.Map.include({
 			options = '';
 		}
 
+		// printing: don't export form fields, irrelevant, and can be buggy
+		// comments are irrelevant, too
+		if (id === 'print' && format === 'pdf' && options === '')
+			options = '{\"ExportFormFields\":{\"type\":\"boolean\",\"value\":\"false\"},' +
+						'\"ExportNotes\":{\"type\":\"boolean\",\"value\":\"false\"}}';
+
+		// download: don't export comments into PDF by default
+		if (id == 'export' && format === 'pdf' && options === '')
+			options = '{\"ExportNotes\":{\"type\":\"boolean\",\"value\":\"false\"}}';
+
 		if (!window.ThisIsAMobileApp)
 			this.showBusy(_('Downloading...'), false);
+
 		app.socket.sendMessage('downloadas ' +
 			'name=' + encodeURIComponent(name) + ' ' +
 			'id=' + id + ' ' +
@@ -418,7 +429,7 @@ L.Map.include({
 		if (window.ThisIsAMobileApp) {
 			productName = window.MobileAppName;
 		} else {
-			productName = (typeof brandProductName !== 'undefined') ? brandProductName : 'Collabora Online Development Edition';
+			productName = (typeof brandProductName !== 'undefined') ? brandProductName : 'Collabora Online Development Edition (unbranded)';
 		}
 		var w;
 		var iw = window.innerWidth;
@@ -592,7 +603,7 @@ L.Map.include({
 		if (window.ThisIsAMobileApp) {
 			productName = window.MobileAppName;
 		} else {
-			productName = (typeof brandProductName !== 'undefined') ? brandProductName : 'Collabora Online Development Edition';
+			productName = (typeof brandProductName !== 'undefined') ? brandProductName : 'Collabora Online Development Edition (unbranded)';
 		}
 		var productURL = (typeof brandProductURL !== 'undefined') ? brandProductURL : 'https://collaboraonline.github.io/';
 		content.find('#product-name').text(productName).addClass('product-' + productName.split(/[ ()]+/).join('-').toLowerCase());
@@ -849,6 +860,36 @@ L.Map.include({
 				} else {
 					this.sendUnoCommand('.uno:FunctionDialog');
 				}
+			}
+			break;
+		case 'zoteroAddEditCitation':
+			{
+				this.zotero.handleItemList();
+			}
+			break;
+		case 'zoteroSetDocPrefs':
+			{
+				this.zotero.handleStyleList();
+			}
+			break;
+		case 'exportpdf':
+			{
+				this.sendUnoCommand('.uno:ExportToPDF', {
+					'SynchronMode': {
+						'type': 'boolean',
+						'value': false
+					}
+				});
+			}
+			break;
+		case 'exportepub':
+			{
+				this.sendUnoCommand('.uno:ExportToEPUB', {
+					'SynchronMode': {
+						'type': 'boolean',
+						'value': false
+					}
+				});
 			}
 			break;
 		}

@@ -59,6 +59,8 @@
 #include <ios.h>
 #elif defined(__ANDROID__)
 #include "androidapp.hpp"
+#elif defined(GTKAPP)
+#include "gtk.hpp"
 #endif
 
 bool StorageBase::FilesystemEnabled;
@@ -1466,9 +1468,13 @@ WopiStorage::handleUploadToStorageResponse(const WopiUploadDetails& details,
         {
             result.setResult(StorageBase::UploadResult::Result::TOO_LARGE);
         }
-        else if (details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED
-                 || details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_FORBIDDEN)
+        else if (details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED ||
+                 details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_FORBIDDEN ||
+                 details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_NOT_FOUND)
         {
+            // The ms-wopi specs recognizes 401 and 404 for invalid token
+            // and file unknown/user unauthorized, respectively.
+            // We also handle 403 that some implementation use.
             result.setResult(StorageBase::UploadResult::Result::UNAUTHORIZED);
         }
         else if (details.httpResponseCode == Poco::Net::HTTPResponse::HTTP_CONFLICT)

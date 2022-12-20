@@ -328,9 +328,11 @@ COOL_JS_LST =\
 	src/control/Control.AlertDialog.js \
 	src/control/Control.Infobar.js \
 	src/control/ColorPicker.js \
+	src/control/jsdialog/Widget.TreeView.js \
 	src/control/Control.JSDialog.js \
 	src/control/Control.JSDialogBuilder.js \
 	src/control/Control.MobileWizardBuilder.js \
+	src/control/Control.MobileWizardWindow.js \
 	src/control/Control.MobileWizard.js \
 	src/control/Control.MobileWizardPopup.js \
 	src/control/Control.LanguageDialog.js \
@@ -359,6 +361,7 @@ COOL_JS_LST =\
 	src/control/Control.Layers.js \
 	src/control/Control.Sidebar.js \
 	src/control/Control.Mention.js \
+	src/control/Control.Zotero.js \
 	src/control/Search.js \
 	src/control/Permission.js \
 	src/control/Toolbar.js \
@@ -681,6 +684,9 @@ pot:
 		src/control/Control.MobileBottomBar.js \
 		src/control/Control.MobileTopBar.js \
 		src/control/Control.MobileWizardBuilder.js \
+		src/control/Control.MobileWizardWindow.js \
+		src/control/Control.MobileWizard.js \
+		src/control/Control.MobileWizardPopup.js \
 		src/control/Control.Notebookbar.js \
 		src/control/Control.NotebookbarBuilder.js \
 		src/control/Control.NotebookbarCalc.js \
@@ -697,6 +703,7 @@ pot:
 		src/control/Control.Toolbar.js \
 		src/control/Control.TopToolbar.js \
 		src/control/Control.UserList.js \
+		src/control/Control.Zotero.js \
 		src/control/Parts.js \
 		src/control/Permission.js \
 		src/control/Ruler.js \

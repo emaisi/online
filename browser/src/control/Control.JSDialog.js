@@ -242,13 +242,14 @@ L.Control.JSDialog = L.Control.extend({
 			}
 		};
 
-		if (!isModalPopup) {
+		if (!isModalPopup || (data.hasClose)) {
 			var titlebar = L.DomUtil.create('div', 'ui-dialog-titlebar ui-corner-all ui-widget-header ui-helper-clearfix', container);
 			var title = L.DomUtil.create('span', 'ui-dialog-title', titlebar);
 			title.innerText = data.title;
 			var button = L.DomUtil.create('button', 'ui-button ui-corner-all ui-widget ui-button-icon-only ui-dialog-titlebar-close', titlebar);
 			L.DomUtil.create('span', 'ui-button-icon ui-icon ui-icon-closethick', button);
-		} else {
+		}
+		if (isModalPopup) {
 			L.DomUtil.addClass(container, 'modalpopup');
 			if (isSnackbar)
 				L.DomUtil.addClass(container, 'snackbar');
@@ -282,7 +283,7 @@ L.Control.JSDialog = L.Control.extend({
 		}
 
 		builder.build(content, [data]);
-		var primaryBtn = L.DomUtil.get(defaultButtonId);
+		var primaryBtn = content.querySelector('#' + defaultButtonId);
 		if (primaryBtn)
 			L.DomUtil.addClass(primaryBtn, 'button-primary');
 		if (isAutofilter)
@@ -309,6 +310,12 @@ L.Control.JSDialog = L.Control.extend({
 				that.draggingObject = null;
 			}
 		};
+
+		if (isModalPopup && data.hasClose) {
+			button.onclick = function() {
+				that.close(data.id, true);
+			};
+		}
 
 		if (!isModalPopup) {
 			button.onclick = function() {
@@ -418,9 +425,13 @@ L.Control.JSDialog = L.Control.extend({
 
 		// after some updates, eg. drawing areas window can be bigger than initially
 		// update position according to that with small delay
-		var initialPositionSetup = function (force) {
-			setupPosition(force);
-			that.updatePosition(container, posX, posY);
+		// styleOnly - don't change position
+		var initialPositionSetup = function (force, styleOnly) {
+			if (!styleOnly) {
+				setupPosition(force);
+				that.updatePosition(container, posX, posY);
+			}
+
 			container.style.visibility = '';
 
 			// setup initial focus and helper elements for closing popup
@@ -465,7 +476,7 @@ L.Control.JSDialog = L.Control.extend({
 			clickToClose: clickToCloseElement,
 			overlay: overlay,
 			isPopup: isModalPopup,
-			invalidated: false,
+			invalidated: !!toRemove,
 			setupPosFunc: initialPositionSetup,
 			updatePos: updatePos
 		};
@@ -513,11 +524,14 @@ L.Control.JSDialog = L.Control.extend({
 		var temporaryParent = L.DomUtil.create('div');
 		builder.build(temporaryParent, [data.control], false);
 		parent.insertBefore(temporaryParent.firstChild, control.nextSibling);
+		var backupGridSpan = control.style.gridColumn;
 		L.DomUtil.remove(control);
 
 		var newControl = dialog.querySelector('[id=\'' + data.control.id + '\']');
-		if (newControl)
+		if (newControl) {
 			newControl.scrollTop = scrollTop;
+			newControl.style.gridColumn = backupGridSpan;
+		}
 
 		if (focusedId)
 			dialog.querySelector('[id=\'' + focusedId + '\']').focus();
@@ -527,8 +541,9 @@ L.Control.JSDialog = L.Control.extend({
 			dialogInfo.updatePos(false, new L.Point(data.posx, data.posy));
 		}
 
-		if (!dialogInfo.invalidated && dialogInfo.setupPosFunc) {
-			setTimeout(function () { dialogInfo.setupPosFunc(true); }, 100);
+		if (dialogInfo.setupPosFunc) {
+			var styleOnly = dialogInfo.invalidated === true;
+			setTimeout(function () { dialogInfo.setupPosFunc(!styleOnly, styleOnly); }, 100);
 			dialogInfo.invalidated = true;
 		}
 	},

@@ -19,11 +19,11 @@ ARG version
 # Optional. The default is 'code'.
 ARG type
 
+# Optional. If defined then brand package will not be installed.
+ARG nobrand
+
 # Environment variables
 ENV LC_CTYPE C.UTF-8
-
-# add fonts
-ADD /fonts/WindowsFonts /usr/share/fonts/WindowsFonts
 
 # Setup scripts for Collabora Online
 ADD /scripts/install-collabora-online-ubuntu.sh /

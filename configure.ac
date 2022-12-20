@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.63])
 
-AC_INIT([coolwsd], [22.05.8.4], [https://github.com/CollaboraOnline/online/issues], [coolwsd], [https://collaboraonline.github.io/])
+AC_INIT([coolwsd], [22.05.9.2], [https://github.com/CollaboraOnline/online/issues], [coolwsd], [https://collaboraonline.github.io/])
 LT_INIT([shared, disable-static, dlopen])
 
 AM_INIT_AUTOMAKE([1.10 foreign subdir-objects tar-pax -Wno-portability])
@@ -1108,10 +1108,8 @@ AS_IF([test `uname -s` != Darwin],
                       [AC_MSG_ERROR([dlopen not found])])])
 
 AS_IF([test "$ENABLE_IOSAPP" != "true" -a "$ENABLE_ANDROIDAPP" != "true"],
-      [AC_SEARCH_LIBS([png_create_write_struct],
-                      [png],
-                      [],
-                      [AC_MSG_ERROR([libpng not available?])])
+      [PKG_CHECK_MODULES([PNG], [libpng])
+
 dnl    deflated HTTP / web-page serving
        PKG_CHECK_MODULES([ZLIB], [zlib])
 dnl    tile compression
@@ -1208,6 +1206,7 @@ AS_IF([test "$ENABLE_IOSAPP" != "true" -a "$ENABLE_ANDROIDAPP" != "true"],
            AC_DEFINE([DISABLE_SECCOMP],1,[Whether to disable SECCOMP])
        fi
 
+       PKG_CHECK_MODULES([OPENSSL], [openssl])
        AC_MSG_CHECKING([Whether OpenSSL has PKCS5_PBKDF2_HMAC()])
        AC_COMPILE_IFELSE([AC_LANG_SOURCE([
        #include <openssl/opensslv.h>
@@ -1439,7 +1438,7 @@ if test "$enable_feature_lock" = "yes"; then
 .uno:TTestDialog .uno:FTestDialog .uno:ZTestDialog .uno:ChiSquareTestDialog \
 .uno:FourierAnalysisDialog .uno:Validation .uno:DataFilterSpecialFilter \
 .uno:TrackChanges .uno:AcceptTrackedChanges .uno:InsertReferenceField \
-.uno:Watermark .uno:InsertIndexesEntry .uno:InsertAuthoritiesEntry \
+.uno:Watermark .uno:InsertIndexesEntry \
 .uno:InsertMultiIndex .uno:SlideMasterPage downloadas-epub downloadas-rtf masterslidebutton"
 fi
 AC_DEFINE_UNQUOTED([LOCKED_COMMANDS],["$LOCKED_COMMANDS"],[Default value of feature_lock.locked_commands])

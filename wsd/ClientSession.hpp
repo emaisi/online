@@ -65,9 +65,6 @@ public:
     /// from either the client or the Kit.
     bool isLive() const { return _state == SessionState::LIVE && !isCloseFrame(); }
 
-    /// Returns true iff the view is either not readonly or can change comments.
-    bool isWritable() const { return !isReadOnly() || isAllowChangeComments(); }
-
     /// Handle kit-to-client message.
     bool handleKitToClientMessage(const std::shared_ptr<Message>& payload);
 
@@ -164,7 +161,13 @@ public:
     const Poco::URI& getPublicUri() const { return _uriPublic; }
 
     /// The access token of this session.
-    Authorization getAuthorization() const { return _auth; }
+    const Authorization& getAuthorization() const { return _auth; }
+
+    void invalidateAuthorizationToken()
+    {
+        LOG_DBG("Session [" << getId() << "] expiring its authorization token");
+        _auth.expire();
+    }
 
     /// Set WOPI fileinfo object
     void setWopiFileInfo(std::unique_ptr<WopiStorage::WOPIFileInfo>& wopiFileInfo) { _wopiFileInfo = std::move(wopiFileInfo); }
@@ -385,6 +388,10 @@ private:
 
     /// Epoch of the client's performance.now() function, as microseconds since Unix epoch
     uint64_t _performanceCounterEpoch;
+
+    // Saves time from setting/fetching user info multiple times using zotero API
+    bool _isZoteroUserInfoSet = false;
+
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

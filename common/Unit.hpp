@@ -72,32 +72,33 @@ public:
     };
 
 protected:
+    /// The options used for the current TestSuite.
+    class TestOptions
+    {
+    public:
+        TestOptions()
+            : _keepgoing(false)
+        {
+        }
+
+        void setFilter(const std::string& filter) { _filter = filter; }
+        const std::string& getFilter() const { return _filter; }
+
+        void setKeepgoing(bool failfase) { _keepgoing = failfase; }
+        bool getKeepgoing() const { return _keepgoing; }
+
+    private:
+        /// The test filter string. Only run tests that match.
+        std::string _filter;
+        /// Don't run subsequent tests, if any, on failure.
+        bool _keepgoing;
+    };
+
     // ---------------- Helper API ----------------
     /// After this time we invoke 'timeout' default 30 seconds
     void setTimeout(std::chrono::milliseconds timeoutMilliSeconds);
 
-    enum class TestResult
-    {
-        Failed,
-        Ok,
-        TimedOut
-    };
-
-    static const std::string testResultAsString(TestResult res)
-    {
-        switch (res)
-        {
-            case TestResult::Failed:
-                return "Failed";
-            case TestResult::Ok:
-                return "Ok";
-            case TestResult::TimedOut:
-                return "TimedOut";
-        }
-
-        assert(!"Unknown TestResult entry.");
-        return std::to_string(static_cast<int>(res));
-    }
+    STATE_ENUM(TestResult, Failed, Ok, TimedOut);
 
     /// Encourages the process to exit with this value (unless hooked)
     void exitTest(TestResult result, const std::string& reason = std::string());
@@ -114,11 +115,15 @@ protected:
         exitTest(TestResult::Ok, reason);
     }
 
+    /// Called when a test has eneded, to clean up.
+    virtual void endTest(const std::string& reason);
+
     /// Construct a UnitBase instance with a default name.
     explicit UnitBase(const std::string& name, UnitType type)
         : _setRetValue(false)
-        , _retValue(0)
+        , _result(TestResult::Ok)
         , _timeoutMilliSeconds(std::chrono::seconds(30))
+        , _startTimeMilliSeconds(std::chrono::milliseconds::zero())
         , _type(type)
         , _socketPoll(std::make_shared<SocketPoll>(name))
         , testname(name)
@@ -145,6 +150,7 @@ public:
     /// Returns true if we failed, false otherwise.
     virtual bool onDataLoss(const std::string& reason)
     {
+        LOG_TST("onDataLoss: " << reason);
         failTest(reason);
         return failed();
     }
@@ -219,7 +225,7 @@ public:
 
     /// True iff exitTest was called with anything but TestResult::Ok.
     /// Meaningful only when isFinished() is true.
-    bool failed() const { return _retValue; }
+    bool failed() const { return _result != TestResult::Ok; }
 
     std::chrono::milliseconds getTimeoutMilliSeconds() const
     {
@@ -228,7 +234,16 @@ public:
 
     void checkTimeout(const std::chrono::milliseconds elapsedTime)
     {
-        if (isUnitTesting() && !isFinished() && elapsedTime > getTimeoutMilliSeconds())
+        if (_startTimeMilliSeconds == std::chrono::milliseconds::zero())
+        {
+            // Since we can't assume we are the first test to run,
+            // we need to capture *out* start so we can correctly
+            // calculate how long we've been running.
+            _startTimeMilliSeconds = elapsedTime;
+        }
+
+        if (isUnitTesting() && !isFinished() &&
+            (elapsedTime - _startTimeMilliSeconds) > getTimeoutMilliSeconds())
         {
             LOG_TST("ERROR Test exceeded its time limit of "
                     << getTimeoutMilliSeconds() << ". It's been running for " << elapsedTime);
@@ -238,7 +253,8 @@ public:
 
     static UnitBase& get()
     {
-        assert(GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex]);
+        assert(GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex] &&
+               "There are no tests to dereference");
         return *GlobalArray[GlobalIndex];
     }
 
@@ -256,8 +272,17 @@ private:
     /// Dynamically load the unit-test .so.
     static UnitBase** linkAndCreateUnit(UnitType type, const std::string& unitLibPath);
 
+    /// Initialize the Test Suite options.
+    static void initTestSuiteOptions();
+
     /// Based on COOL_TEST_OPTIONS envar, filter the tests.
     static void filter();
+
+    /// Returns true iff there are more valid test instances to dereference.
+    static bool haveMoreTests()
+    {
+        return GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex + 1];
+    }
 
     /// Handles messages from LOKit.
     virtual bool onFilterLOKitMessage(const std::shared_ptr<Message>& /*message*/) { return false; }
@@ -279,13 +304,17 @@ private:
     static char *UnitLibPath;
     static UnitBase** GlobalArray; //< All the tests.
     static int GlobalIndex; //< The index of the current test.
+    static TestOptions GlobalTestOptions; //< The test options for this Test Suite.
     static TestResult GlobalResult; //< The result of all tests. Latches at first failure.
 
     bool _setRetValue;
-    int _retValue;
+    TestResult _result;
     std::chrono::milliseconds _timeoutMilliSeconds;
+    /// The time at which this particular test started, relative to the start of the Test Suite.
+    std::chrono::milliseconds _startTimeMilliSeconds;
     UnitType _type;
 
+    std::mutex _lock; //< Used to protect cleanup functions.
     std::shared_ptr<SocketPoll> _socketPoll; //< Poll thread for async http comm.
 
 protected:
@@ -307,8 +336,6 @@ public:
     virtual ~UnitWSD();
 
     static UnitWSD& get();
-
-    virtual void returnValue(int& /* retValue */);
 
     enum class TestRequest
     {
@@ -455,8 +482,6 @@ public:
     explicit UnitKit(const std::string& testname);
     virtual ~UnitKit();
     static UnitKit& get();
-
-    virtual void returnValue(int& /* retValue */);
 
     // ---------------- ForKit hooks ----------------
 

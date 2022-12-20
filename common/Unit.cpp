@@ -13,6 +13,7 @@
 #include <cassert>
 #include <dlfcn.h>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <sysexits.h>
 #include <thread>
@@ -24,8 +25,10 @@
 
 #include "Log.hpp"
 #include "Util.hpp"
+#include "test/testlog.hpp"
 
 #include <common/SigUtil.hpp>
+#include <common/StringVector.hpp>
 #include <common/Message.hpp>
 
 UnitKit *GlobalKit = nullptr;
@@ -35,6 +38,7 @@ UnitBase** UnitBase::GlobalArray = nullptr;
 int UnitBase::GlobalIndex = -1;
 char* UnitBase::UnitLibPath = nullptr;
 void* UnitBase::DlHandle = nullptr;
+UnitBase::TestOptions UnitBase::GlobalTestOptions;
 UnitBase::TestResult UnitBase::GlobalResult = UnitBase::TestResult::Ok;
 static std::thread TimeoutThread;
 static std::atomic<bool> TimeoutThreadRunning(false);
@@ -115,21 +119,45 @@ UnitBase** UnitBase::linkAndCreateUnit(UnitType type, const std::string& unitLib
     return nullptr;
 }
 
-void UnitBase::filter()
+void UnitBase::initTestSuiteOptions()
 {
-    // For now, support only filtering.
     static const char* TestOptions = getenv("COOL_TEST_OPTIONS");
     if (TestOptions == nullptr)
         return;
 
-    const std::string filter = Util::toLower(TestOptions);
+    StringVector tokens = StringVector::tokenize(std::string(TestOptions), ':');
+
+    for (const auto& token : tokens)
+    {
+        // Expect name=value pairs.
+        const auto pair = Util::split(tokens.getParam(token), '=');
+
+        // If there is no value, assume it's a filter string.
+        if (pair.second.empty())
+        {
+            const std::string filter = Util::toLower(pair.first);
+            LOG_INF("Setting the 'filter' test option to [" << filter << ']');
+            GlobalTestOptions.setFilter(filter);
+        }
+        else if (pair.first == "keepgoing")
+        {
+            const bool keepgoing = pair.second == "1" || pair.second == "true";
+            LOG_INF("Setting the 'keepgoing' test option to " << keepgoing);
+            GlobalTestOptions.setKeepgoing(keepgoing);
+        }
+    }
+}
+
+void UnitBase::filter()
+{
+    const auto& filter = GlobalTestOptions.getFilter();
     for (; GlobalArray[GlobalIndex] != nullptr; ++GlobalIndex)
     {
         const std::string& name = GlobalArray[GlobalIndex]->getTestname();
         if (strstr(Util::toLower(name).c_str(), filter.c_str()))
             break;
 
-        LOG_INF("Skipping test [" << name << "] per filter [" << TestOptions << "]");
+        LOG_INF("Skipping test [" << name << "] per filter [" << filter << ']');
     }
 }
 
@@ -150,6 +178,8 @@ bool UnitBase::init(UnitType type, const std::string &unitLibPath)
         GlobalArray = linkAndCreateUnit(type, unitLibPath);
         if (GlobalArray)
         {
+            initTestSuiteOptions();
+
             // Filter tests.
             GlobalIndex = 0;
             filter();
@@ -321,7 +351,7 @@ void UnitBase::setTimeout(std::chrono::milliseconds timeoutMilliSeconds)
 
 UnitBase::~UnitBase()
 {
-    LOG_TST(getTestname() << ": ~UnitBase: " << (_retValue ? "FAILED" : "SUCCESS"));
+    LOG_TST(getTestname() << ": ~UnitBase: " << (failed() ? "FAILED" : "SUCCESS"));
 
     _socketPoll->joinThread();
 }
@@ -460,39 +490,50 @@ UnitKit& UnitKit::get()
 
 void UnitBase::exitTest(TestResult result, const std::string& reason)
 {
+    // We could be called from either a SocketPoll (websrv_poll)
+    // or from invokeTest (coolwsd main).
+    std::lock_guard<std::mutex> guard(_lock);
+
     if (isFinished())
     {
-        if ((result == TestResult::Ok && _retValue != EX_OK) ||
-            (result != TestResult::Ok && _retValue == EX_OK))
-            LOG_TST(getTestname() << ": exitTest " << testResultAsString(result)
-                                  << " but is already finished with a different result.");
+        if (result != _result)
+            LOG_TST("exitTest got " << name(result) << " but is already finished with "
+                                    << name(_result));
         return;
     }
 
+    _result = result;
+    endTest(reason);
+    _setRetValue = true;
+
     if (result == TestResult::Ok)
     {
-        LOG_TST(getTestname() << ": SUCCESS: exitTest: " << testResultAsString(result)
-                              << (reason.empty() ? "" : ": " + reason));
+        LOG_TST("SUCCESS: exitTest: " << name(result) << (reason.empty() ? "" : ": " + reason));
     }
     else
     {
-        LOG_TST("ERROR " << getTestname() << ": FAILURE: exitTest: " << testResultAsString(result)
-                         << (reason.empty() ? "" : ": " + reason));
+        LOG_TST("ERROR: FAILURE: exitTest: " << name(result)
+                                             << (reason.empty() ? "" : ": " + reason));
 
-        _retValue = EX_SOFTWARE;
         if (GlobalResult == TestResult::Ok)
             GlobalResult = result;
+
+        if (!GlobalTestOptions.getKeepgoing() && haveMoreTests())
+        {
+            LOG_TST("Failing fast per options, even though there are more tests");
+#if !MOBILEAPP
+            LOG_TST("Setting TerminationFlag as the Test Suite failed");
+            SigUtil::setTerminationFlag(); // And wakupWorld.
+#else
+            SocketPoll::wakeupWorld();
+#endif
+            return;
+        }
     }
 
-    _setRetValue = true;
-
     // Check if we have more tests, but keep the current index if it's the last.
-    if (GlobalArray && GlobalIndex >= 0 && GlobalArray[GlobalIndex + 1])
+    if (haveMoreTests())
     {
-        // By default, this will check _setRetValue and copy _retValue to the arg.
-        // But we call it to trigger overrides and to perform cleanups.
-        returnValue(_retValue);
-
         // We have more tests.
         ++GlobalIndex;
         filter();
@@ -506,6 +547,9 @@ void UnitBase::exitTest(TestResult result, const std::string& reason)
             if (GlobalWSD)
                 GlobalWSD->configure(Poco::Util::Application::instance().config());
             GlobalArray[GlobalIndex]->initialize();
+
+            // Wake-up so the previous test stops.
+            SocketPoll::wakeupWorld();
             return;
         }
     }
@@ -516,7 +560,7 @@ void UnitBase::exitTest(TestResult result, const std::string& reason)
                                  << (GlobalResult == TestResult::Ok ? "SUCCESS" : "FAILED"));
 
 #if !MOBILEAPP
-    LOG_INF("Setting ShutdownRequestFlag as there are no more tests");
+    LOG_TST("Setting TerminationFlag as there are no more tests");
     SigUtil::setTerminationFlag(); // And wakupWorld.
 #else
     SocketPoll::wakeupWorld();
@@ -528,8 +572,8 @@ void UnitBase::timeout()
     // Don't timeout if we had already finished.
     if (isUnitTesting() && !isFinished())
     {
-        LOG_TST("ERROR " << getTestname() << ": Timed out waiting for unit test to complete within "
-                         << _timeoutMilliSeconds);
+        LOG_TST("ERROR: Timed out waiting for unit test to complete within "
+                << _timeoutMilliSeconds);
         exitTest(TestResult::TimedOut);
     }
 }
@@ -537,7 +581,13 @@ void UnitBase::timeout()
 void UnitBase::returnValue(int &retValue)
 {
     if (_setRetValue)
-        retValue = _retValue;
+        retValue = (_result == TestResult::Ok ? EX_OK : EX_SOFTWARE);
+}
+
+void UnitBase::endTest(const std::string& reason)
+{
+    LOG_TST("Ending test by stopping SocketPoll [" << _socketPoll->name() << "]: " << reason);
+    _socketPoll->joinThread();
 
     // tell the timeout thread that the work has finished
     TimeoutThreadMutex.unlock();
@@ -545,20 +595,6 @@ void UnitBase::returnValue(int &retValue)
         TimeoutThread.join();
 
     LOG_TST("==================== Finished [" << getTestname() << "] ====================");
-}
-
-void UnitKit::returnValue(int &retValue)
-{
-    UnitBase::returnValue(retValue);
-
-    GlobalKit = nullptr;
-}
-
-void UnitWSD::returnValue(int &retValue)
-{
-    UnitBase::returnValue(retValue);
-
-    GlobalWSD = nullptr;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

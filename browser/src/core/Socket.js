@@ -51,7 +51,7 @@ app.definitions.Socket = L.Class.extend({
 			try {
 				this.socket = window.createWebSocket(this.getWebSocketBaseURI(map));
 			} catch (e) {
-				this._map.fire('error', {msg: _('Oops, there is a problem connecting to %productName: ').replace('%productName', (typeof brandProductName !== 'undefined' ? brandProductName : 'Collabora Online Development Edition')) + e, cmd: 'socket', kind: 'failed', id: 3});
+				this._map.fire('error', {msg: _('Oops, there is a problem connecting to %productName: ').replace('%productName', (typeof brandProductName !== 'undefined' ? brandProductName : 'Collabora Online Development Edition (unbranded)')) + e, cmd: 'socket', kind: 'failed', id: 3});
 				return;
 			}
 		}
@@ -248,6 +248,9 @@ app.definitions.Socket = L.Class.extend({
 	},
 
 	_logSocket: function(type, msg) {
+		if (window.ThisIsTheGtkApp)
+			window.postMobileDebug(type + ' ' + msg);
+
 		var fullDebug = this._map._docLayer && this._map._docLayer._debug;
 
 		if (fullDebug)
@@ -1090,7 +1093,7 @@ app.definitions.Socket = L.Class.extend({
 				textMsg = textMsg.replace(/{docs}/g, command.params[0]);
 				textMsg = textMsg.replace(/{connections}/g, command.params[1]);
 				textMsg = textMsg.replace(/{productname}/g, (typeof brandProductName !== 'undefined' ?
-					brandProductName : 'Collabora Online Development Edition'));
+					brandProductName : 'Collabora Online Development Edition (unbranded)'));
 				this._map.fire('infobar',
 					{
 						msg: textMsg,
@@ -1465,10 +1468,11 @@ app.definitions.Socket = L.Class.extend({
 				this._map.fire('formulabar', {data: msgData});
 				return;
 			}
-			if (msgData.enabled || msgData.type === 'modalpopup' || msgData.type === 'snackbar') {
+			if (msgData.enabled || msgData.jsontype === 'dialog' ||
+				msgData.type === 'modalpopup' || msgData.type === 'snackbar') {
 				this._map.fire('mobilewizard', {data: msgData, callback: callback});
 			} else {
-				this._map.fire('closemobilewizard');
+				console.warn('jsdialog: unhandled mobile message');
 			}
 		} else if (msgData.jsontype === 'autofilter') {
 			this._map.fire('autofilterdropdown', msgData);

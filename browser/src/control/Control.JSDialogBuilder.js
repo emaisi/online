@@ -4,7 +4,7 @@
  * from the JSON description provided by the server.
  */
 
-/* global app $ w2ui _ _UNO UNOKey UNOModifier L */
+/* global app $ w2ui _ _UNO UNOKey UNOModifier L JSDialog */
 
 L.Control.JSDialogBuilder = L.Control.extend({
 
@@ -102,7 +102,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 		this._controlHandlers['divcontainer'] = this._divContainerHandler;
 		this._controlHandlers['colorlistbox'] = this._colorControl;
 		this._controlHandlers['borderstyle'] = this._borderControl;
-		this._controlHandlers['treelistbox'] = this._treelistboxControl;
+		this._controlHandlers['treelistbox'] = JSDialog.treeView;
 		this._controlHandlers['iconview'] = this._iconViewControl;
 		this._controlHandlers['drawingarea'] = this._drawingAreaControl;
 		this._controlHandlers['rootcomment'] = this._rootCommentControl;
@@ -115,6 +115,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 		this._controlHandlers['image'] = this._imageHandler;
 		this._controlHandlers['scrollwindow'] = this._scrollWindowControl;
 		this._controlHandlers['customtoolitem'] = this._mapDispatchToolItem;
+		this._controlHandlers['bigcustomtoolitem'] = this._mapBigDispatchToolItem;
 
 		this._controlHandlers['mainmenu'] = this._containerHandler;
 		this._controlHandlers['submenu'] = this._subMenuHandler;
@@ -158,6 +159,15 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			{text: _UNO('.uno:ZTestDialog', 'spreadsheet'), uno: '.uno:ZTestDialog'},
 			{text: _UNO('.uno:ChiSquareTestDialog', 'spreadsheet'), uno: '.uno:ChiSquareTestDialog'},
 			{text: _UNO('.uno:FourierAnalysisDialog', 'spreadsheet'), uno: '.uno:FourierAnalysisDialog'}
+		];
+		this._menus['FormatSparklineMenu'] = [
+			{text: _UNO('.uno:InsertSparkline', 'spreadsheet'), uno: '.uno:InsertSparkline'},
+			{text: _UNO('.uno:DeleteSparkline', 'spreadsheet'), uno: '.uno:DeleteSparkline'},
+			{text: _UNO('.uno:DeleteSparklineGroup', 'spreadsheet'), uno: '.uno:DeleteSparklineGroup'},
+			{text: _UNO('.uno:EditSparklineGroup', 'spreadsheet'), uno: '.uno:EditSparklineGroup'},
+			{text: _UNO('.uno:EditSparkline', 'spreadsheet'), uno: '.uno:EditSparkline'},
+			{text: _UNO('.uno:GroupSparklines', 'spreadsheet'), uno: '.uno:GroupSparklines'},
+			{text: _UNO('.uno:UngroupSparklines', 'spreadsheet'), uno: '.uno:UngroupSparklines'}
 		];
 		this._menus['MenuPrintRanges'] = [
 			{text: _UNO('.uno:DefinePrintArea', 'spreadsheet'), uno: '.uno:DefinePrintArea'},
@@ -539,32 +549,55 @@ L.Control.JSDialogBuilder = L.Control.extend({
 
 		var processedChildren = [];
 
-		var table = L.DomUtil.create('table', builder.options.cssClass + ' ui-grid', parentContainer);
+		var table = L.DomUtil.create('div', builder.options.cssClass + ' ui-grid', parentContainer);
 		table.id = data.id;
 
+		var gridRowColStyle = 'grid-template-rows: repeat(' + rows  + ', auto); \
+			grid-template-columns: repeat(' + cols  + ', auto);';
+
+		table.style = gridRowColStyle;
+
 		for (var row = 0; row < rows; row++) {
-			var rowNode = L.DomUtil.create('tr', builder.options.cssClass, table);
+			var prevChild = null;
+
 			for (var col = 0; col < cols; col++) {
 				var child = builder._getGridChild(data.children, row, col);
-				var colNode = L.DomUtil.create('td', builder.options.cssClass, rowNode);
+				var isMergedCell = prevChild && prevChild.width
+					&& parseInt(prevChild.left) + parseInt(prevChild.width) > col;
 
 				if (child) {
-					if (child.width)
-						$(colNode).attr('colspan', parseInt(child.width));
+					if (!child.id || child.id === '') // required for postprocess...
+						child.id = table.id + '-cell-' + row + '-' + col;
 
-					builder.build(colNode, [child], false, false);
+					var sandbox = L.DomUtil.create('div');
+					builder.build(sandbox, [child], false);
+
+					var control = sandbox.firstChild;
+					if (control) {
+						L.DomUtil.addClass(control, 'ui-grid-cell');
+						table.appendChild(control);
+					}
 
 					processedChildren.push(child);
+					prevChild = child;
+				} else if (!isMergedCell) {
+					// empty placeholder to keep correct order
+					L.DomUtil.create('div', 'ui-grid-cell', table);
 				}
+
 			}
 		}
 
 		for (var i = 0; i < (data.children || []).length; i++) {
 			child = data.children[i];
 			if (processedChildren.indexOf(child) === -1) {
-				rowNode = L.DomUtil.create('tr', builder.options.cssClass, table);
-				colNode = L.DomUtil.create('td', builder.options.cssClass, rowNode);
-				builder.build(colNode, [child], false, false);
+				sandbox = L.DomUtil.create('div');
+				builder.build(sandbox, [child], false);
+				control = sandbox.firstChild;
+				if (control) {
+					L.DomUtil.addClass(control, 'ui-grid-cell');
+					table.appendChild(control);
+				}
 				processedChildren.push(child);
 			}
 		}
@@ -682,7 +715,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 				if (data.enabled !== 'false' && data.enabled !== false) {
 					$(sectionTitle).click(function(event, data) {
 						builder.wizard.goLevelDown(mainContainer, data);
-						if (contentNode && contentNode.onshow)
+						if (contentNode && contentNode.onshow && !builder.wizard._inBuilding)
 							contentNode.onshow();
 					});
 				} else {
@@ -1395,7 +1428,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 
 	_editControl: function(parentContainer, data, builder, callback) {
 		var edit = L.DomUtil.create('input', 'ui-edit ' + builder.options.cssClass, parentContainer);
-		edit.value = builder._cleanText(data.text);
+		edit.value = data.text;
 		edit.id = data.id;
 		edit.dir = 'auto';
 
@@ -1770,7 +1803,6 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	},
 
 	_listboxControl: function(parentContainer, data, builder) {
-		var fontnamecombobox = data.id === 'fontnamecombobox';
 		var title = data.text;
 		var selectedEntryIsString = false;
 		if (data.selectedEntries) {
@@ -1798,259 +1830,36 @@ L.Control.JSDialogBuilder = L.Control.extend({
 
 		$(listbox).change(function() {
 			if ($(this).val())
-				builder.callback('combobox', 'selected', data, $(this).val(), builder);
+				builder.callback('combobox', 'selected', data, $(this).val()+ ';' + $(this).children('option:selected').text(), builder);
 		});
 		var hasSelectedEntry = false;
 		if (typeof(data.entries) === 'object') {
-			var windowZhFonts = [{en: 'SimSun', cn: '宋体'}, {en: 'NSimSun', cn: '新宋体'},{en: 'FangSong', cn: '仿宋'},{en: 'KaiTi', cn: '楷体'},{en: 'SimHei', cn: '黑体'},{en: 'Microsoft YaHei', cn: '微软雅黑'},{en: 'Microsoft YaHei Light', cn: '微软雅黑Light'},{en: 'Microsoft YaHei UI', cn: '微软雅黑UI'},{en: 'Microsoft YaHei UI Light', cn: '微软雅黑UILight'}];
-			var windowZhFontsStr = 'SimSun,NSimSun,FangSong,KaiTi,SimHei,Microsoft YaHei,Microsoft YaHei Light,Microsoft YaHei UI,Microsoft YaHei UI Light';
-			var windowZhFontsOptions = {};
-			if (fontnamecombobox) {
-				for (var i = 0; i < windowZhFonts.length; ++i) {
-					var option = L.DomUtil.create('option', '', listbox);
-					option.value = windowZhFonts[i].en;
-					option.innerText = windowZhFonts[i].cn;
-					windowZhFontsOptions[option.value] = option;
-				}
-			}
-			
 			for (var index in data.entries) {
 				var isSelected = false;
-				var value = data.entries[index];
 				if ((data.selectedEntries && index == data.selectedEntries[0])
-					|| (data.selectedEntries && selectedEntryIsString && value === data.selectedEntries[0])
-					|| value == title) {
+					|| (data.selectedEntries && selectedEntryIsString && data.entries[index] === data.selectedEntries[0])
+					|| data.entries[index] == title) {
 					isSelected = true;
 				}
-				if (fontnamecombobox && windowZhFontsStr.indexOf(value) != -1) {
-					var option = windowZhFontsOptions[value];
-					option.value = index + ';' + option.value;
-					if (isSelected) {
-						option.selected = true;
-						hasSelectedEntry = true;
-					}
-				} else {
-					var option = L.DomUtil.create('option', '', listbox);
-					option.value = index+';'+value;
-					option.innerText = value;
-					if (isSelected) {
-						option.selected = true;
-						hasSelectedEntry = true;
-					}
+
+				var option = L.DomUtil.create('option', '', listbox);
+				option.value = index;
+				option.innerText = data.entries[index];
+				if (isSelected) {
+					option.selected = true;
+					hasSelectedEntry = true;
 				}
 			}
 		}
 		// no selected entry; set the visible value to empty string unless the font is not included in the entries
 		if (!hasSelectedEntry) {
-			$(listbox).val('');
-		}
-
-		return false;
-	},
-
-	_treelistboxEntry: function (parentContainer, treeViewData, entry, builder) {
-		if (entry.text == '<dummy>')
-			return;
-		var disabled = treeViewData.enabled === 'false' || treeViewData.enabled === false;
-
-		var li = L.DomUtil.create('li', builder.options.cssClass, parentContainer);
-
-		if (!disabled && entry.state == null) {
-			li.draggable = true;
-
-			li.ondragstart = function drag(ev) {
-				ev.dataTransfer.setData('text', entry.row);
-				builder.callback('treeview', 'dragstart', treeViewData, entry.row, builder);
-
-				$('.ui-treeview').addClass('droptarget');
-			};
-
-			li.ondragend = function () { $('.ui-treeview').removeClass('droptarget'); };
-			li.ondragover = function (event) { event.preventDefault(); };
-		}
-
-		var span = L.DomUtil.create('span', builder.options.cssClass + ' ui-treeview-entry ' + (entry.children ? ' ui-treeview-expandable' : 'ui-treeview-notexpandable'), li);
-
-		var expander = L.DomUtil.create('div', builder.options.cssClass + ' ui-treeview-expander ', span);
-
-		if (entry.selected && (entry.selected === 'true' || entry.selected === true))
-			$(span).addClass('selected');
-
-		if (entry.state !== undefined) {
-			var checkbox = L.DomUtil.create('input', builder.options.cssClass + ' ui-treeview-checkbox', span);
-			checkbox.type = 'checkbox';
-
-			if (entry.state === 'true' || entry.state === true)
-				checkbox.checked = true;
-
-			if (!disabled) {
-				$(checkbox).change(function() {
-					if (this.checked) {
-						builder.callback('treeview', 'change', treeViewData, {row: entry.row, value: true}, builder);
-					} else {
-						builder.callback('treeview', 'change', treeViewData, {row: entry.row, value: false}, builder);
-					}
-				});
-			}
-		}
-
-		var text = L.DomUtil.create('span', builder.options.cssClass + ' ui-treeview-cell', span);
-		text.innerText = entry.text;
-		text.tabIndex = 0;
-
-		if (entry.children) {
-			var ul = L.DomUtil.create('ul', builder.options.cssClass, li);
-			for (var i in entry.children) {
-				builder._treelistboxEntry(ul, treeViewData, entry.children[i], builder);
-			}
-
-			var toggleFunction = function() {
-				$(span).toggleClass('collapsed');
-			};
-
-			if (!disabled) {
-				if (entry.ondemand) {
-					expander.tabIndex = 0;
-					L.DomEvent.on(expander, 'click', function() {
-						if (entry.ondemand && L.DomUtil.hasClass(span, 'collapsed'))
-							builder.callback('treeview', 'expand', treeViewData, entry.row, builder);
-						toggleFunction();
-					});
-				} else {
-					$(expander).click(toggleFunction);
-				}
-
-				// block expand/collapse on checkbox
-				if (entry.state)
-					$(checkbox).click(toggleFunction);
-			}
-
-			if (entry.ondemand)
-				L.DomUtil.addClass(span, 'collapsed');
-		}
-
-		if (!disabled && entry.state == null) {
-			var singleClick = treeViewData.singleclickactivate === 'true' || treeViewData.singleclickactivate === true;
-			var clickFunction = function() {
-				$('#' + treeViewData.id + ' .ui-treeview-entry').removeClass('selected');
-				$(span).addClass('selected');
-
-				builder.callback('treeview', 'select', treeViewData, entry.row, builder);
-				if (singleClick) {
-					builder.callback('treeview', 'activate', treeViewData, entry.row, builder);
-				}
-			};
-
-			text.addEventListener('click', clickFunction);
-			text.addEventListener('keydown', function onEvent(event) {
-				var preventDef = false;
-				var listElements = $('#' + treeViewData.id + ' li');
-				var currIndex = parseInt(entry.row);
-				var treeLength = treeViewData.entries.length;
-				var spanElement = 'span.ui-treeview-cell';
-				if (event.key === 'Enter') {
-					clickFunction();
-					preventDef = true;
-				} else if (event.key === 'ArrowDown') {
-					if (currIndex === treeLength - 1)
-						listElements.eq(0).find(spanElement).focus();
-					else
-						listElements.eq(currIndex + 1).find(spanElement).focus();
-					preventDef = true;
-				} else if (event.key === 'ArrowUp') {
-					if (currIndex === 0)
-						listElements.eq(treeLength - 1).find(spanElement).focus();
-					else
-						listElements.eq(currIndex - 1).find(spanElement).focus();
-					preventDef = true;
-				} else if (builder.callback('treeview', 'keydown', { treeViewData: treeViewData, key: event.key }, entry.row, builder)) {
-					preventDef = true;
-				}
-				if (preventDef) {
-					event.preventDefault();
-					event.stopPropagation();
-				}
-			});
-
-			if (!singleClick) {
-				$(text).dblclick(function() {
-					$('#' + treeViewData.id + ' .ui-treeview-entry').removeClass('selected');
-					$(span).addClass('selected');
-
-					builder.callback('treeview', 'activate', treeViewData, entry.row, builder);
-				});
-			}
-		}
-	},
-
-	_headerlistboxEntry: function (parentContainer, treeViewData, entry, builder) {
-		var disabled = treeViewData.enabled === 'false' || treeViewData.enabled === false;
-
-		if (entry.selected && (entry.selected === 'true' || entry.selected === true))
-			$(parentContainer).addClass('selected');
-
-		for (var i in entry.columns) {
-			var td = L.DomUtil.create('td', '', parentContainer);
-			td.innerText = entry.columns[i].text;
-
-			if (!disabled) {
-				$(td).click(function() {
-					$('#' + treeViewData.id + ' .ui-listview-entry').removeClass('selected');
-					$(parentContainer).addClass('selected');
-
-					builder.callback('treeview', 'select', treeViewData, entry.row, builder);
-				});
-			}
-		}
-	},
-
-	_treelistboxControl: function (parentContainer, data, builder) {
-		var table = L.DomUtil.create('table', builder.options.cssClass + ' ui-treeview', parentContainer);
-		table.id = data.id;
-		var disabled = data.enabled === 'false' || data.enabled === false;
-		if (disabled)
-			L.DomUtil.addClass(table, 'disabled');
-
-		var tbody = L.DomUtil.create('tbody', builder.options.cssClass + ' ui-treeview-body', table);
-
-		var isHeaderListBox = data.headers && data.headers.length !== 0;
-		if (isHeaderListBox) {
-			var headers = L.DomUtil.create('tr', builder.options.cssClass + ' ui-treeview-header', tbody);
-			for (var h in data.headers) {
-				var header = L.DomUtil.create('th', builder.options.cssClass, headers);
-				header.innerText = data.headers[h].text;
-			}
-		}
-
-		if (!disabled) {
-			tbody.ondrop = function (ev) {
-				ev.preventDefault();
-				var row = ev.dataTransfer.getData('text');
-				builder.callback('treeview', 'dragend', data, row, builder);
-				$('.ui-treeview').removeClass('droptarget');
-			};
-
-			tbody.ondragover = function (event) { event.preventDefault(); };
-		}
-
-		if (!data.entries || data.entries.length === 0) {
-			L.DomUtil.addClass(table, 'empty');
-			return false;
-		}
-
-		if (isHeaderListBox) {
-			// list view with headers
-			for (var i in data.entries) {
-				var tr = L.DomUtil.create('tr', builder.options.cssClass + ' ui-listview-entry', tbody);
-				builder._headerlistboxEntry(tr, data, data.entries[i], builder);
-			}
-		} else {
-			// tree view
-			var ul = L.DomUtil.create('ul', builder.options.cssClass, tbody);
-
-			for (i in data.entries) {
-				builder._treelistboxEntry(ul, data, data.entries[i], builder);
-			}
+			if (title) {
+				var newOption = L.DomUtil.create('option', '', listbox);
+				newOption.value = ++index;
+				newOption.innerText = title;
+				newOption.selected = true;
+			} else
+				$(listbox).val('');
 		}
 
 		return false;
@@ -2205,11 +2014,15 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	_separatorControl: function(parentContainer, data) {
 		// don't create new control, style current parent
 
-		L.DomUtil.addClass(parentContainer, 'ui-separator');
+		var target = parentContainer.lastChild;
+		if (!target)
+			target = parentContainer;
+
+		L.DomUtil.addClass(target, 'ui-separator');
 		if (data.orientation && data.orientation === 'vertical') {
-			L.DomUtil.addClass(parentContainer, 'vertical');
+			L.DomUtil.addClass(target, 'vertical');
 		} else {
-			L.DomUtil.addClass(parentContainer, 'horizontal');
+			L.DomUtil.addClass(target, 'horizontal');
 		}
 
 		return false;
@@ -2520,6 +2333,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			'alignright': 'rightpara',
 			'alignhorizontalcenter': 'centerpara',
 			'alignblock': 'justifypara',
+			'formatsparklinemenu': 'insertsparkline',
 			'insertdatecontentcontrol': 'datefield',
 			'editheaderandfooter': 'headerandfooter',
 			'insertheaderfooter': 'headerandfooter',
@@ -2595,7 +2409,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			'insertindexesentry': 'insertmultiindex',
 			'paperheight': 'pageheight',
 			'masterslidespanel': 'masterslide',
-			//'slidemasterpage': 'masterslide',
+			'slidemasterpage': 'masterslide',
 			'tabledeletemenu': 'deletetable',
 			'tracechangemode': 'trackchanges',
 			'deleteallannotation': 'deleteallnotes',
@@ -2626,7 +2440,13 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			'modifypage': 'sidebar',
 			'parapropertypanel': 'paragraphdialog',
 			'tablecellbackgroundcolor': 'fillcolor',
-			'signdocument':'signature'
+			'signdocument':'signature',
+			'zoteroaddeditcitation': 'insertauthoritiesentry',
+			'zoteroaddnote': 'addcitationnote',
+			'zoterorefresh': 'updateall',
+			'zoterounlink': 'unlinkcitation',
+			'zoteroaddeditbibliography': 'addeditbibliography',
+			'zoterosetdocprefs': 'formproperties'
 		};
 		if (iconURLAliases[cleanName]) {
 			cleanName = iconURLAliases[cleanName];
@@ -2837,6 +2657,25 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			data.command = data.id;
 
 		var control = builder._unoToolButton(parentContainer, data, builder);
+
+		$(control.container).unbind('click.toolbutton');
+		if (!builder.map.isLockedItem(data)) {
+			$(control.container).click(function () {
+				builder.map.dispatch(data.command);
+			});
+		}
+	},
+
+	_mapBigDispatchToolItem: function (parentContainer, data, builder) {
+		if (!data.command)
+			data.command = data.id;
+
+		var noLabels = builder.options.noLabelsForUnoButtons;
+		builder.options.noLabelsForUnoButtons = false;
+
+		var control = builder._unoToolButton(parentContainer, data, builder);
+
+		builder.options.noLabelsForUnoButtons = noLabels;
 
 		$(control.container).unbind('click.toolbutton');
 		if (!builder.map.isLockedItem(data)) {
@@ -3186,11 +3025,6 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	},
 
 	_menuItemHandler: function(parentContainer, data, builder) {
-		var kishCommandName = data.command && data.command.startsWith('.uno:') ? data.command.substring('.uno:'.length) : data.id;
-		if (builder.map.getDocType() === 'spreadsheet' &&  kishCommandName && kishCommandName.toLowerCase() == 'delete') {
-			return;
-		}
-		
 		var title = data.text;
 		// separator
 		if (title === '') {
@@ -3445,6 +3279,10 @@ L.Control.JSDialogBuilder = L.Control.extend({
 				L.DomUtil.addClass(parent, 'hidden');
 		}
 
+		if (control && data.width) {
+			control.style.gridColumn = 'span ' + parseInt(data.width);
+		}
+
 		// natural tab-order when using keyboard navigation
 		if (control && !control.hasAttribute('tabIndex')
 			&& data.type !== 'container'
@@ -3465,14 +3303,13 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			control.setAttribute('tabIndex', '0');
 	},
 
-	build: function(parent, data, hasVerticalParent, parentHasManyChildren) {
+	build: function(parent, data, hasVerticalParent) {
 
+		// TODO: check and probably remove additional containers
 		if (hasVerticalParent === undefined) {
 			parent = L.DomUtil.create('div', 'root-container ' + this.options.cssClass, parent);
 			parent = L.DomUtil.create('div', 'vertical ' + this.options.cssClass, parent);
 		}
-
-		var containerToInsert = parent;
 
 		for (var childIndex in data) {
 			var childData = data[childIndex];
@@ -3481,19 +3318,10 @@ L.Control.JSDialogBuilder = L.Control.extend({
 
 			var childType = childData.type;
 
-			if (parentHasManyChildren) {
-				if (!hasVerticalParent)
-					var td = L.DomUtil.create('div', 'cell ' + this.options.cssClass, containerToInsert);
-				else {
-					containerToInsert = L.DomUtil.create('div', 'row ' + this.options.cssClass, parent);
-					td = L.DomUtil.create('div', 'cell ' + this.options.cssClass, containerToInsert);
-				}
-			} else {
-				td = containerToInsert;
-			}
+			var containerToInsert = parent;
 
 			if (childData.dialogid)
-				td.id = childData.dialogid;
+				containerToInsert.id = childData.dialogid;
 
 			var isVertical = childData.vertical === 'true' || childData.vertical === true ? true : false;
 
@@ -3508,14 +3336,37 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			var hasManyChildren = childData.children && childData.children.length > 1;
 			var isContainer = this.isContainerType(childData.type);
 			if (hasManyChildren && isContainer) {
-				var table = L.DomUtil.createWithId('div', childData.id, td);
+				var table = L.DomUtil.createWithId('div', childData.id, containerToInsert);
 				$(table).addClass(this.options.cssClass);
-				$(table).addClass('vertical');
-				var childObject = L.DomUtil.create('div', 'row ' + this.options.cssClass, table);
 
-				this.postProcess(td, childData);
+				if (!isVertical) {
+					var rows = this._getGridRows(childData.children);
+					var cols = this._getGridColumns(childData.children);
+
+					if (rows > 1 && cols > 1) {
+						var gridRowColStyle = 'grid-template-rows: repeat(' + rows  + '); \
+							grid-template-columns: repeat(' + cols  + ');';
+
+						table.style = gridRowColStyle;
+					} else {
+						$(table).css('grid-auto-flow', 'column');
+					}
+
+					$(table).css('display', 'grid');
+				}
+
+				$(table).addClass('ui-grid-cell');
+
+				// if 'table' has no id - postprocess won't work...
+				if (childData.width) {
+					table.style.gridColumn = 'span ' + parseInt(childData.width);
+				}
+
+				var childObject = table;
+
+				this.postProcess(containerToInsert, childData);
 			} else {
-				childObject = td;
+				childObject = containerToInsert;
 			}
 
 			var handler = this._controlHandlers[childType];
@@ -3527,7 +3378,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 				window.app.console.warn('JSDialogBuilder: Unsupported control type: "' + childType + '"');
 
 			if (processChildren && childData.children != undefined)
-				this.build(childObject, childData.children, isVertical, hasManyChildren);
+				this.build(childObject, childData.children, isVertical);
 			else if (childData.visible && (childData.visible === false || childData.visible === 'false')) {
 				$('#' + childData.id).addClass('hidden-from-event');
 			}
