@@ -98,7 +98,7 @@ fi
 if test ! -d core ; then
 #  git clone https://git.libreoffice.org/core || exit 1
 #缓存国内镜像，速度快很多
-  git clone git clone git://go.suokunlong.cn/lo/core || exit 1
+  git clone git://go.suokunlong.cn/lo/core || exit 1
 fi
 
 ( cd core && git fetch --all && git checkout $CORE_BRANCH && ./g pull -r ) || exit 1
