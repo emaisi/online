@@ -1928,7 +1928,7 @@ void COOLWSD::innerInitialize(Application& self)
         { "per_document.batch_priority", "5" },
         { "per_document.pdf_resolution_dpi", "96" },
         { "per_document.redlining_as_comments", "false" },
-        { "per_view.group_download_as", "false" },
+        { "per_view.group_download_as", "true" },
         { "per_view.idle_timeout_secs", "900" },
         { "per_view.out_of_focus_timeout_secs", "120" },
         { "security.capabilities", "true" },
@@ -1998,6 +1998,7 @@ void COOLWSD::innerInitialize(Application& self)
         { "deepl.api_url", ""},
         { "deepl.auth_key", ""},
         { "deepl.enabled", "false"},
+        { "zotero.enable", "true"},
     };
 
     // Set default values, in case they are missing from the config file.
@@ -4914,6 +4915,9 @@ private:
         // Set that this is a proxy.php-enabled instance
         capabilities->set("hasProxyPrefix", COOLWSD::IsProxyPrefixEnabled);
 
+        // Set if this instance supports Zotero
+        capabilities->set("hasZoteroSupport", config::getBool("zotero.enable", true));
+
         std::ostringstream ostrJSON;
         capabilities->stringify(ostrJSON);
         return ostrJSON.str();
@@ -5532,7 +5536,7 @@ int COOLWSD::innerMain()
 
     // Wait until documents are saved and sessions closed.
     // Don't stop the DocBroker, they will exit.
-    constexpr size_t sleepMs = 500;
+    constexpr size_t sleepMs = 200;
     constexpr size_t count = (COMMAND_TIMEOUT_MS * 6) / sleepMs;
     for (size_t i = 0; i < count; ++i)
     {

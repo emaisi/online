@@ -52,7 +52,7 @@
 }
 
 .jsdialog.vertical p, .ui-frame-label {
-	margin: 0px;
+	margin: auto 0px;
 	color: var(--color-main-text);
 	font-size: var(--default-font-size);
 	line-height: var(--default-height);
@@ -83,17 +83,17 @@
 
 .jsdialog.ui-separator.vertical {
 	height: 100%;
-	padding-left: 6px;
-	/* border-left: 1px dashed #888; */
+	padding-right: 6px;
+	/* border-right: 1px dashed #888; */
 	background-image: linear-gradient(#888 22%, rgba(255,255,255,0) 0%);
-	background-position: left center;
+	background-position: right center;
 	background-size: 1px 14px;
 	background-repeat: repeat-y;
 	box-shadow: inset 0 34px 0 0 white;
 }
 
 .jsdialog.ui-separator.horizontal {
-	padding-top: 6px;
+	padding-bottom: 6px;
 }
 
 .jsdialog.row {
@@ -123,6 +123,12 @@ td.jsdialog > [id^='table-box']:not(.sidebar) {
 .jsdialog.ui-grid {
 	border-spacing: 0px;
 	width: 100%;
+	display: grid;
+}
+
+/* vertical alignment in the grid */
+.ui-grid-cell {
+	margin: auto 0px;
 }
 
 /* Scrollwindow - used eg. in accessibility check in writer */
@@ -169,7 +175,7 @@ td.jsdialog > [id^='table-box']:not(.sidebar) {
 }
 
 .ui-tab.hidden.jsdialog {
-	display: none;
+	visibility: hidden;
 }
 
 .ui-tab.selected.jsdialog {
@@ -222,6 +228,26 @@ td.jsdialog > [id^='table-box']:not(.sidebar) {
 	margin-inline-end: 7px !important;
 	display: inline-block;
 	position: relative !important;
+}
+
+.ui-treeview-header-sort-icon::after {
+	content: '\25BC';
+	margin-inline-start: 7px;
+	display: none;
+}
+
+.ui-treeview-header-sort-icon.up::after {
+	transform: rotate(180deg);
+	display: inline-block;
+}
+
+.ui-treeview-header-sort-icon.down::after {
+	display: inline-block;
+}
+
+.ui-listview-icon {
+	height: 24px;
+	margin-inline-end: 8px;
 }
 
 .ui-expander-label.expanded {
@@ -430,6 +456,11 @@ input[type='checkbox']:checked.autofilter, .jsdialog input[type='checkbox']:chec
 }
 /* spinfield */
 
+.spinfieldcontainer input {
+	border: 1px solid var(--color-border-dark);
+	border-radius: var(--border-radius);
+}
+
 .spinfieldcontainer input:hover {
 	border: 1px solid var(--color-border-darker);
 	color: var(--color-text-darker);
@@ -441,6 +472,7 @@ input[type='checkbox']:checked.autofilter, .jsdialog input[type='checkbox']:chec
 	height: 28px;
 	box-sizing: border-box;
 	margin-right: 1px;
+	min-width: 70px;
 }
 
 .spinfieldunit {
@@ -513,6 +545,7 @@ input[type='number']:hover::-webkit-outer-spin-button {
 	pointer-events: none;
 	margin-block-start: 8px;
 	margin-inline-start: -16px;
+	margin-inline-end: 4px;
 }
 
 .ui-listbox[disabled='disabled'] ~ .ui-listbox-arrow {
@@ -655,6 +688,10 @@ input[type='number']:hover::-webkit-outer-spin-button {
 	width: 100%;
 	min-width: 200px;
 	max-height: 150px;
+}
+
+#ZoteroDialog .ui-treeview-body {
+	max-height: 500px;
 }
 
 .autofilter-container-submenu > .autofilter-container {
@@ -845,6 +882,7 @@ input[type='number']:hover::-webkit-outer-spin-button {
 /* toolbox */
 .jsdialog.toolbox {
 	display: flex;
+	align-items: center;
 }
 
 /* spinner */
@@ -1207,4 +1245,29 @@ input[type='number']:hover::-webkit-outer-spin-button {
 	border-radius: 0 var(--border-radius) var(--border-radius) 0 !important;
 	border-inline-start: none !important;
 	background-color: var(--color-main-background) !important;
+}
+
+/* Zotero dialog*/
+
+#ZoteroDialog-mainbox.jsdialog .ui-treeview {
+	height: 400px;
+}
+
+#ZoteroDialog-search-container.jsdialog {
+	margin: 7px;
+}
+
+#zoterocategory.jsdialog {
+	margin-inline-end: 7px;
+	min-width: 150px !important;
+}
+
+#zoterolist.jsdialog {
+	margin-inline-end: 7px;
+	width: 800px;
+}
+
+#zoterosearch-label.jsdialog {
+	text-align: end;
+	margin: auto 7px;
 }

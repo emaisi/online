@@ -44,6 +44,14 @@ private:
     unsigned char _lastFlags; //< The flags in the last frame.
     const bool _isClient;
 
+    // Last member.
+#ifdef ENABLE_DEBUG
+    /// The UnitBase instance. We capture it here since
+    /// this is our instance, but the test framework
+    /// has a single global instance via UnitWSD::get().
+    UnitBase& _unit;
+#endif
+
 protected:
     struct WSFrameMask
     {
@@ -60,17 +68,24 @@ public:
     /// isClient: the instance should behave like a client (true) or like a server (false)
     ///           (from websocket perspective)
     /// isMasking: a client should mask (true) or not (false) outgoing frames
-    WebSocketHandler(bool isClient, bool isMasking) :
+    WebSocketHandler(bool isClient, bool isMasking)
+        :
 #if !MOBILEAPP
-        _lastPingSentTime(std::chrono::steady_clock::now()),
-        _pingTimeUs(0),
-        _isMasking(isClient && isMasking),
-        _inFragmentBlock(false),
-        _key(isClient ? PublicComputeAccept::generateKey() : std::string()),
+        _lastPingSentTime(std::chrono::steady_clock::now() -
+                          std::chrono::microseconds(PingFrequencyMicroS) -
+                          std::chrono::microseconds(InitialPingDelayMicroS))
+        , _pingTimeUs(0)
+        , _isMasking(isClient && isMasking)
+        , _inFragmentBlock(false)
+        , _key(isClient ? PublicComputeAccept::generateKey() : std::string())
+        ,
 #endif
-        _shuttingDown(false),
-        _lastFlags(0),
-        _isClient(isClient)
+        _shuttingDown(false)
+        , _lastFlags(0)
+        , _isClient(isClient)
+#ifdef ENABLE_DEBUG
+        , _unit(UnitBase::get())
+#endif
     {
     }
 
@@ -80,26 +95,16 @@ public:
     /// request: the HTTP upgrade request to WebSocket
     template <typename T>
     WebSocketHandler(const std::shared_ptr<StreamSocket>& socket, const T& request)
-        : _socket(socket)
-#if !MOBILEAPP
-        , _lastPingSentTime(std::chrono::steady_clock::now()
-                            - std::chrono::microseconds(PingFrequencyMicroS)
-                            - std::chrono::microseconds(InitialPingDelayMicroS))
-        , _pingTimeUs(0)
-        , _isMasking(false)
-        , _inFragmentBlock(false)
-        , _key(std::string())
-#endif
-        , _shuttingDown(false)
-        , _lastFlags(0)
-        , _isClient(false)
+        : WebSocketHandler(/*isClient=*/false, /*isMasking=*/false)
     {
         if (!socket)
             throw std::runtime_error("Invalid socket while upgrading to WebSocket.");
 
+        _socket = socket;
+
         // As a server, respond with 101 protocol-upgrade.
-        if (!_isClient)
-            upgradeToWebSocket(*socket, request);
+        assert(!_isClient);
+        upgradeToWebSocket(socket, request);
     }
 
     /// Status codes sent to peer on shutdown.
@@ -650,8 +655,7 @@ public:
         if (!Util::isFuzzing())
         {
             int unitReturn = -1;
-            static auto& unit = UnitBase::get();
-            if (unit.filterSendWebSocketMessage(data, len, code, flush, unitReturn))
+            if (_unit.filterSendWebSocketMessage(data, len, code, flush, unitReturn))
                 return unitReturn;
         }
 
@@ -902,10 +906,11 @@ protected:
 
     /// Upgrade the http(s) connection to a websocket.
     template <typename T>
-    void upgradeToWebSocket(StreamSocket& socket, const T& req)
+    void upgradeToWebSocket(const std::shared_ptr<StreamSocket>& socket, const T& req)
     {
-        LOG_TRC('#' << socket.getFD() << ": Upgrading to WebSocket.");
-        assert(!socket.isWebSocket());
+        assert(socket && "Must have a valid socket");
+        LOG_TRC('#' << socket->getFD() << ": Upgrading to WebSocket.");
+        assert(!socket->isWebSocket());
         assert(!_isClient && "Accepting upgrade requests are done by servers only.");
 
 #if !MOBILEAPP
@@ -914,23 +919,23 @@ protected:
         const std::string wsKey = req.get("Sec-WebSocket-Key", "");
         const std::string wsProtocol = req.get("Sec-WebSocket-Protocol", "chat");
         // FIXME: other sanity checks ...
-        LOG_INF('#' << socket.getFD() << ": WebSocket version: " << wsVersion << ", key: [" << wsKey
-                    << "], protocol: [" << wsProtocol << "].");
+        LOG_INF('#' << socket->getFD() << ": WebSocket version: " << wsVersion << ", key: ["
+                    << wsKey << "], protocol: [" << wsProtocol << "].");
 
 #if ENABLE_DEBUG
         if (std::getenv("COOL_ZERO_BUFFER_SIZE"))
-            socket.setSocketBufferSize(0);
+            socket->setSocketBufferSize(0);
 #endif
 
         http::Response httpResponse(http::StatusLine(101));
         httpResponse.set("Upgrade", "websocket");
         httpResponse.set("Connection", "Upgrade");
         httpResponse.set("Sec-WebSocket-Accept", PublicComputeAccept::doComputeAccept(wsKey));
-        LOG_TRC('#' << socket.getFD()
+        LOG_TRC('#' << socket->getFD()
                     << ": Sending WS Upgrade response: " << httpResponse.header().toString());
-        socket.send(httpResponse);
+        socket->send(httpResponse);
 #endif
-        setWebSocket();
+        setWebSocket(socket);
     }
 
 #if !MOBILEAPP
@@ -955,7 +960,7 @@ protected:
                        == PublicComputeAccept::doComputeAccept(_key))
             {
                 LOG_TRC('#' << socket->getFD() << " Accepted incoming websocket response");
-                setWebSocket();
+                setWebSocket(socket);
             }
             else
             {
@@ -988,11 +993,10 @@ protected:
     }
 #endif
 
-    void setWebSocket()
+    void setWebSocket(const std::shared_ptr<StreamSocket>& socket)
     {
-        std::shared_ptr<StreamSocket> socket = _socket.lock();
-        if (socket)
-            socket->setWebSocket();
+        assert(socket && "Must have a valid socket");
+        socket->setWebSocket();
 #if !MOBILEAPP
         // No need to ping right upon connection/upgrade,
         // but do reset the time to avoid pinging immediately after.

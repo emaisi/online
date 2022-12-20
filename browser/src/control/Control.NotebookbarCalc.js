@@ -80,9 +80,11 @@ L.Control.NotebookbarCalc = L.Control.NotebookbarWriter.extend({
 	},
 
 	getFileTab: function() {
+		var hasRevisionHistory = L.Params.revHistoryEnabled;
 		var hasPrint = !this._map['wopi'].HidePrintOption;
 		var hasRepair = !this._map['wopi'].HideRepairOption;
 		var hasSaveAs = !this._map['wopi'].UserCanNotWriteRelative;
+		var hasShare = this._map['wopi'].EnableShare;
 		var hasGroupedDownloadAs = !!window.groupDownloadAsForNb;
 		var hasGroupedSaveAs = window.uiDefaults && window.uiDefaults.saveAsMode === 'group';
 		var hasRunMacro = !(window.enableMacrosExecution  === 'false');
@@ -121,6 +123,27 @@ L.Control.NotebookbarCalc = L.Control.NotebookbarWriter.extend({
 		}
 
 		content = content.concat([
+			{
+				'id': 'file-shareas-rev-history',
+				'type': 'container',
+				'children': [
+					hasShare ?
+						{
+							'id': 'ShareAs',
+							'type': 'menubartoolitem',
+							'text': _('Share'),
+							'command': '.uno:shareas'
+						} : {},
+					hasRevisionHistory ?
+						{
+							'id': 'Rev-History',
+							'type': 'menubartoolitem',
+							'text': _('See history'),
+							'command': '.uno:rev-history'
+						} : {},
+				],
+				'vertical': 'true'
+			},
 			hasPrint ?
 				{
 					'id': 'print',
@@ -1025,6 +1048,11 @@ L.Control.NotebookbarCalc = L.Control.NotebookbarWriter.extend({
 				'command': '.uno:InsertObjectChart'
 			},
 			{
+				'type': 'bigtoolitem',
+				'text': _('Sparkline'),
+				'command': '.uno:InsertSparkline'
+			},
+			{
 				'id': 'Insert-Section-PivotTable-Ext',
 				'type': 'container',
 				'children': [
@@ -1503,6 +1531,12 @@ L.Control.NotebookbarCalc = L.Control.NotebookbarWriter.extend({
 				'type': 'bigtoolitem',
 				'text': _UNO('.uno:TransformDialog'),
 				'command': '.uno:TransformDialog'
+			},
+			{
+				'id': 'Format-SparklineMenu:FormatSparklineMenu',
+				'type': 'menubutton',
+				'text': _UNO('.uno:FormatSparklineMenu', 'spreadsheet'),
+				'enabled': 'true'
 			},
 		];
 

@@ -75,8 +75,7 @@ ClientSession::ClientSession(
     _tileHeightTwips(0),
     _kitViewId(-1),
     _serverURL(requestDetails),
-    _isTextDocument(false),
-    _lastSentFormFielButtonMessage("")
+    _isTextDocument(false)
 {
     const std::size_t curConnections = ++COOLWSD::NumConnections;
     LOG_INF("ClientSession ctor [" << getName() << "] for URI: [" << _uriPublic.toString()
@@ -163,10 +162,10 @@ bool ClientSession::disconnectFromKit()
 #ifndef IOS
         LOG_TRC("request/rescue clipboard on disconnect for " << getId());
         // rescue clipboard before shutdown.
-        docBroker->forwardToChild(getId(), "getclipboard");
+        docBroker->forwardToChild(client_from_this(), "getclipboard");
 #endif
         // handshake nicely; so wait for 'disconnected'
-        docBroker->forwardToChild(getId(), "disconnect");
+        docBroker->forwardToChild(client_from_this(), "disconnect");
 
         return false;
     }
@@ -289,7 +288,7 @@ void ClientSession::handleClipboardRequest(DocumentBroker::ClipboardRequest     
         }
 
         LOG_TRC("Session [" << getId() << "] sending getclipboard" + specific);
-        docBroker->forwardToChild(getId(), "getclipboard" + specific);
+        docBroker->forwardToChild(client_from_this(), "getclipboard" + specific);
         _clipSockets.push_back(socket);
     }
     else // REQUEST_SET
@@ -299,7 +298,7 @@ void ClientSession::handleClipboardRequest(DocumentBroker::ClipboardRequest     
         if (data.get())
         {
             preProcessSetClipboardPayload(*data);
-            docBroker->forwardToChild(getId(), "setclipboard\n" + *data, true);
+            docBroker->forwardToChild(client_from_this(), "setclipboard\n" + *data, true);
 
             // FIXME: work harder for error detection ?
             std::ostringstream oss;
@@ -463,7 +462,7 @@ bool ClientSession::_handleInput(const char *buffer, int length)
             docBroker->updateLastModifyingActivityTime();
         }
 
-        if (isWritable() && isViewLoaded())
+        if (isEditable() && isViewLoaded())
         {
             assert(!inWaitDisconnected() && "A writable view can't be waiting disconnection.");
             docBroker->updateEditingSessionId(getId());
@@ -647,34 +646,44 @@ bool ClientSession::_handleInput(const char *buffer, int length)
     }
     else if (tokens.equals(0, "save"))
     {
-        if (isReadOnly() && !isAllowChangeComments())
+        // If we can't write to Storage, there is no point in saving.
+        if (!isWritable())
         {
-            LOG_WRN("The document is read-only, cannot save.");
+            LOG_WRN("Session [" << getId() << "] on document [" << docBroker->getDocKey()
+                                << "] has no write permissions in Storage and cannot save.");
+            sendTextFrameAndLogError("error: cmd=save kind=savefailed");
         }
         else
         {
-            int dontTerminateEdit = 1;
-            if (tokens.size() > 1)
-                getTokenInteger(tokens[1], "dontTerminateEdit", dontTerminateEdit);
-
             // Don't save unmodified docs by default.
             int dontSaveIfUnmodified = 1;
-            if (tokens.size() > 2)
-                getTokenInteger(tokens[2], "dontSaveIfUnmodified", dontSaveIfUnmodified);
-
+            int dontTerminateEdit = 1;
             std::string extendedData;
-            if (tokens.size() > 3)
+
+            // We expect at most 3 arguments.
+            for (int i = 0; i < 3; ++i)
             {
-                getTokenString(tokens[3], "extendedData", extendedData);
-                std::string decoded;
-                Poco::URI::decode(extendedData, decoded);
-                extendedData = decoded;
+                // +1 to skip the command token.
+                const StringVector attr = StringVector::tokenize(tokens[i + 1], '=');
+                if (attr.size() == 2)
+                {
+                    if (attr[0] == "dontTerminateEdit")
+                        COOLProtocol::stringToInteger(attr[1], dontTerminateEdit);
+                    else if (attr[0] == "dontSaveIfUnmodified")
+                        COOLProtocol::stringToInteger(attr[1], dontSaveIfUnmodified);
+                    else if (attr[0] == "extendedData")
+                    {
+                        std::string decoded;
+                        Poco::URI::decode(attr[1], decoded);
+                        extendedData = decoded;
+                    }
+                }
             }
 
             constexpr bool isAutosave = false;
             constexpr bool isExitSave = false;
-            docBroker->sendUnoSave(getId(), dontTerminateEdit != 0, dontSaveIfUnmodified != 0,
-                                    isAutosave, isExitSave, extendedData);
+            docBroker->sendUnoSave(client_from_this(), dontTerminateEdit != 0,
+                                   dontSaveIfUnmodified != 0, isAutosave, isExitSave, extendedData);
         }
     }
     else if (tokens.equals(0, "savetostorage"))
@@ -687,7 +696,7 @@ bool ClientSession::_handleInput(const char *buffer, int length)
         // The savetostorage command is really only used to resolve save conflicts
         // and it seems to always have force=1. However, we should still honor the
         // contract and do as told, not as we expect the API to be used. Use force if provided.
-        docBroker->uploadToStorage(getId(), force);
+        docBroker->uploadToStorage(client_from_this(), force);
     }
     else if (tokens.equals(0, "clientvisiblearea"))
     {
@@ -832,12 +841,13 @@ bool ClientSession::_handleInput(const char *buffer, int length)
         docBroker->sendRequestedTiles(client_from_this());
         return true;
     }
-    else if (tokens.equals(0, "removesession")) {
+    else if (tokens.equals(0, "removesession"))
+    {
         if (tokens.size() > 1 && (_isDocumentOwner || !isReadOnly()))
         {
             std::string sessionId = Util::encodeId(std::stoi(tokens[1]), 4);
             docBroker->broadcastMessage(firstLine);
-            docBroker->removeSession(sessionId);
+            docBroker->removeSession(client_from_this());
         }
         else
             LOG_WRN("Readonly session '" << getId() << "' trying to kill another view");
@@ -1278,7 +1288,7 @@ bool ClientSession::sendCombinedTiles(const char* /*buffer*/, int /*length*/, co
 bool ClientSession::forwardToChild(const std::string& message,
                                    const std::shared_ptr<DocumentBroker>& docBroker)
 {
-    return docBroker->forwardToChild(getId(), message);
+    return docBroker->forwardToChild(client_from_this(), message);
 }
 
 bool ClientSession::filterMessage(const std::string& message) const
@@ -1503,7 +1513,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
                     }
 
                     // Save to Storage and log result.
-                    docBroker->handleSaveResponse(getId(), success, result);
+                    docBroker->handleSaveResponse(client_from_this(), success, result);
 
                     if (!isCloseFrame())
                         forwardToClient(payload);
@@ -1545,7 +1555,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
                         // Conversion failed, cleanup fake session.
                         LOG_TRC("Removing save-as ClientSession after conversion error.");
                         // Remove us.
-                        docBroker->removeSession(getId());
+                        docBroker->removeSession(client_from_this());
                         // Now terminate.
                         docBroker->stop("Aborting saveas handler.");
                     }
@@ -1665,7 +1675,8 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
             {
                 // this also sends the saveas: result
                 LOG_TRC("Save-as path: " << resultURL.getPath());
-                docBroker->uploadAsToStorage(getId(), resultURL.getPath(), wopiFilename, false);
+                docBroker->uploadAsToStorage(client_from_this(), resultURL.getPath(), wopiFilename,
+                                             false);
             }
             else
                 sendTextFrameAndLogError("error: cmd=storage kind=savefailed");
@@ -1691,7 +1702,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
             LOG_TRC("Removing save-as ClientSession after conversion.");
 
             // Remove us.
-            docBroker->removeSession(getId());
+            docBroker->removeSession(client_from_this());
 
             // Now terminate.
             docBroker->stop("Finished saveas handler.");
@@ -1808,7 +1819,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
     } else if (tokens.equals(0, "disconnected:")) {
 
         LOG_INF("End of disconnection handshake for " << getId());
-        docBroker->finalRemoveSession(getId());
+        docBroker->finalRemoveSession(client_from_this());
         return true;
     }
     else if (tokens.equals(0, "mediashape:"))
@@ -1865,9 +1876,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
 
             if (UnitWSD::isUnitTesting())
             {
-                UnitWSD::get().onDocBrokerViewLoaded(
-                    docBroker->getDocKey(),
-                    std::dynamic_pointer_cast<ClientSession>(shared_from_this()));
+                UnitWSD::get().onDocBrokerViewLoaded(docBroker->getDocKey(), client_from_this());
             }
 
 #if !MOBILEAPP
@@ -1879,7 +1888,7 @@ bool ClientSession::handleKitToClientMessage(const std::shared_ptr<Message>& pay
             {
                 LOG_DBG("Uploading template [" << _wopiFileInfo->getTemplateSource()
                                                << "] to storage after loading.");
-                docBroker->uploadAfterLoadingTemplate(getId());
+                docBroker->uploadAfterLoadingTemplate(client_from_this());
             }
 
             for(auto &token : tokens)
@@ -2131,7 +2140,7 @@ void ClientSession::onDisconnect()
         // Connection terminated. Destroy session.
         LOG_DBG("on docKey [" << docKey << "] terminated. Cleaning up");
 
-        docBroker->removeSession(getId());
+        docBroker->removeSession(session);
     }
     catch (const UnauthorizedRequestException& exc)
     {
@@ -2181,9 +2190,6 @@ void ClientSession::dumpState(std::ostream& os)
 
     os << "\t\tisLive: " << isLive()
        << "\n\t\tisViewLoaded: " << isViewLoaded()
-       << "\n\t\tisReadOnly: " << isReadOnly()
-       << "\n\t\tisAllowChangeComments: " << isAllowChangeComments()
-       << "\n\t\tisWritable: " << isWritable()
        << "\n\t\tisDocumentOwner: " << isDocumentOwner()
        << "\n\t\tstate: " << name(_state)
        << "\n\t\tkeyEvents: " << _keyEvents

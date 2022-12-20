@@ -23,9 +23,10 @@ AM_CXXFLAGS = $(CPPUNIT_CFLAGS) -DTDOC=\"$(abs_top_srcdir)/test/data\" \
 # 'Finished in' in the `make check` output.
 # When adding new tests, please maintain order.
 all_la_unit_tests = \
+	unit-tiletest.la \
+	unit-wopi-async-slow.la \
 	unit-wopi-stuck-save.la \
 	unit-insert-delete.la \
-	unit-tiletest.la \
 	unit-httpws.la \
 	unit-password-protected.la \
 	unit-wopi-fail-upload.la \
@@ -72,7 +73,6 @@ all_la_unit_tests = \
 	unit-wopi-httpredirect.la \
 	unit-wopi-loadencoded.la \
 	unit-prefork.la \
-	unit-wopi-async-slow.la \
 	unit-render-search-result.la \
 	unit-tiff-load.la \
 	unit-bad-doc-load.la \
@@ -89,10 +89,10 @@ endif
 noinst_LTLIBRARIES = ${all_la_unit_tests}
 
 MAGIC_TO_FORCE_SHLIB_CREATION = -rpath /dummy
-AM_LDFLAGS = -pthread -module $(MAGIC_TO_FORCE_SHLIB_CREATION) $(ZLIB_LIBS) $(ZSTD_LIBS)
+AM_LDFLAGS = -pthread -module $(MAGIC_TO_FORCE_SHLIB_CREATION) $(ZLIB_LIBS) $(ZSTD_LIBS) ${PNG_LIBS}
 
 if ENABLE_SSL
-AM_LDFLAGS += -lssl -lcrypto
+AM_LDFLAGS += ${OPENSSL_LIBS}
 endif
 
 # We work around some of the mess of using the same sources both on
