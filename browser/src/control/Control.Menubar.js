@@ -85,7 +85,6 @@ L.Control.Menubar = L.Control.extend({
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Cut', 'text'), L.Control.MenubarShortcuts.shortcuts.CUT), uno: '.uno:Cut'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Copy', 'text'), L.Control.MenubarShortcuts.shortcuts.COPY), uno: '.uno:Copy'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Paste', 'text'), L.Control.MenubarShortcuts.shortcuts.PASTE), uno: '.uno:Paste'},
-				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:PasteSpecial', 'text'), L.Control.MenubarShortcuts.shortcuts.PASTE_SPECIAL), uno: '.uno:PasteSpecial'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:SelectAll', 'text'), L.Control.MenubarShortcuts.shortcuts.SELECT_ALL), uno: '.uno:SelectAll'},
 				{type: 'separator'},
 				{uno: '.uno:SearchDialog'},
@@ -367,7 +366,6 @@ L.Control.Menubar = L.Control.extend({
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Cut', 'presentation'), L.Control.MenubarShortcuts.shortcuts.CUT), uno: '.uno:Cut'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Copy', 'presentation'), L.Control.MenubarShortcuts.shortcuts.COPY), uno: '.uno:Copy'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Paste', 'presentation'), L.Control.MenubarShortcuts.shortcuts.PASTE), uno: '.uno:Paste'},
-				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:PasteSpecial', 'presentation'), L.Control.MenubarShortcuts.shortcuts.PASTE_SPECIAL), uno: '.uno:PasteSpecial'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:SelectAll', 'presentation'), L.Control.MenubarShortcuts.shortcuts.SELECT_ALL), uno: '.uno:SelectAll'},
 				{type: 'separator'},
 				{uno: '.uno:SearchDialog'}
@@ -497,7 +495,6 @@ L.Control.Menubar = L.Control.extend({
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Cut', 'presentation'), L.Control.MenubarShortcuts.shortcuts.CUT), uno: '.uno:Cut'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Copy', 'presentation'), L.Control.MenubarShortcuts.shortcuts.COPY), uno: '.uno:Copy'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Paste', 'presentation'), L.Control.MenubarShortcuts.shortcuts.PASTE), uno: '.uno:Paste'},
-				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:PasteSpecial', 'presentation'), L.Control.MenubarShortcuts.shortcuts.PASTE_SPECIAL), uno: '.uno:PasteSpecial'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:SelectAll', 'presentation'), L.Control.MenubarShortcuts.shortcuts.SELECT_ALL), uno: '.uno:SelectAll'},
 				{type: 'separator'},
 				{uno: '.uno:SearchDialog'}
@@ -610,7 +607,6 @@ L.Control.Menubar = L.Control.extend({
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Cut', 'text'), L.Control.MenubarShortcuts.shortcuts.CUT), uno: '.uno:Cut'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Copy', 'text'), L.Control.MenubarShortcuts.shortcuts.COPY), uno: '.uno:Copy'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:Paste', 'text'), L.Control.MenubarShortcuts.shortcuts.PASTE), uno: '.uno:Paste'},
-				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:PasteSpecial', 'text'), L.Control.MenubarShortcuts.shortcuts.PASTE_SPECIAL), uno: '.uno:PasteSpecial'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:SelectAll', 'text'), L.Control.MenubarShortcuts.shortcuts.SELECT_ALL), uno: '.uno:SelectAll'},
 				{type: 'separator'},
 				{uno: '.uno:SearchDialog'}

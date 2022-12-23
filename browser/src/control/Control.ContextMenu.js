@@ -20,7 +20,7 @@ L.Control.ContextMenu = L.Control.extend({
 			 * in following list is just for reference and ease of locating uno command
 			 * from context menu structure.
 			 */
-			general: ['Cut', 'Copy', 'Paste', 'PasteSpecial', 'Delete',
+			general: ['Cut', 'Copy', 'Paste','Delete',
 					  'FormatPaintbrush', 'ResetAttributes',
 					  'NumberingStart', 'ContinueNumbering', 'IncrementLevel', 'DecrementLevel',
 					  'OpenHyperlinkOnCursor', 'EditHyperlink', 'CopyHyperlinkLocation', 'RemoveHyperlink',

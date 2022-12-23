@@ -615,24 +615,64 @@ L.Clipboard = L.Class.extend({
 			} catch (error) {
 				window.app.console.warn('Failed to post-message: ' + error);
 			}
-		}
+			try {
+				// 是否支持navigator.clipboard api
+				if (!navigator.clipboard) {
+					L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+					return;
+				}
+				// 申请使用剪切板读取权限
+				navigator.permissions.query({ name: 'clipboard-read' }).then(function(result) {
+					// 可能是 'granted', 'denied' or 'prompt':
+					if (result.state === 'granted') {
+						// 可以使用权限
+						// 进行clipboard的操作
+						navigator.clipboard
+							.read()
+							.then(function(clipboardItems) {
+								var clipboardItem = clipboardItems[0];
+								if (clipboardItem.types.length == 1) {
+									clipboardItem.getType(clipboardItem.types[0]).then(function(blob) {
+										blob.text().then(function(text) {
+											L.Map.THIS._textInput._sendCompositionEvent(text);
+										});
+									});
+								} else if (clipboardItem.types.length > 1) {
+									L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+								}
+							})
+							.catch(function(err) {
+								// 读取剪切板内容失败
+								console.error('Failed navigator.clipboard.read(): ', err);
+								L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+							});
+					} else if (result.state === 'prompt') {
+						// 弹窗弹框申请使用权限
+						navigator.clipboard.read().then(function() {});
+						result.onchange = function() {
+							L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+						};
+					} else {
+						// 如果被拒绝，请不要做任何操作。
+						//vex.dialog.alert({
+						//	unsafeMessage: '<p>请在浏览器隐私设置中设置允许查看您的剪贴板.</p>',
+						//	callback: function () {
+						//		L.Map.THIS.focus();
+						//	}
+						//});
+						L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+					}
+				}).catch(function(err) {
+						// 读取剪切板内容失败
+						console.error('Failed navigator.permissions.query: ', err);
+						L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+					});
+			} catch (error) {
+				console.error('Failed to read clipboard contents: ', error);
+				L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+			}
 
-		// wait and see if we get some help
-		var that = this;
-		clearTimeout(this._failedTimer);
-		setTimeout(function() {
-			if (that._clipboardSerial !== serial)
-			{
-				window.app.console.log('successful ' + operation);
-				if (operation === 'paste')
-					that._stopHideDownload();
-			}
-			else
-			{
-				window.app.console.log('help did not arrive for ' + operation);
-				that._warnCopyPaste();
-			}
-		}, 150 /* ms */);
+		}
 	},
 
 	// Pull UNO clipboard commands out from menus and normal user input.
