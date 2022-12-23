@@ -2,7 +2,7 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
@@ -723,7 +723,7 @@ msgstr "顯示尺規"
 #: src/control/Control.NotebookbarImpress.js:375
 #: src/control/Control.NotebookbarWriter.js:1095
 msgid "Show Status Bar"
-msgstr ""
+msgstr "顯示狀態列"
 
 #: src/control/Control.Menubar.js:132 src/control/Control.Menubar.js:398
 #: src/control/Control.Menubar.js:527 src/control/Control.Menubar.js:655
@@ -743,19 +743,19 @@ msgstr "文字方向"
 
 #: src/control/Control.Menubar.js:296 src/control/Control.Menubar.js:1107
 msgid "Insert Rich Text"
-msgstr ""
+msgstr "插入富文本"
 
 #: src/control/Control.Menubar.js:297 src/control/Control.Menubar.js:1108
 msgid "Insert Checkbox"
-msgstr ""
+msgstr "插入複選框"
 
 #: src/control/Control.Menubar.js:298 src/control/Control.Menubar.js:1109
 msgid "Insert Dropdown"
-msgstr ""
+msgstr "插入下拉"
 
 #: src/control/Control.Menubar.js:299 src/control/Control.Menubar.js:1110
 msgid "Insert Picture"
-msgstr ""
+msgstr "插入圖片"
 
 #: src/control/Control.Menubar.js:300 src/control/Control.Menubar.js:1111
 #, fuzzy
@@ -769,7 +769,7 @@ msgstr "插入表格"
 #: src/control/Control.NotebookbarWriter.js:271
 #: src/control/Control.NotebookbarWriter.js:1013
 msgid "Properties"
-msgstr ""
+msgstr "屬性"
 
 #: src/control/Control.Menubar.js:329
 #: src/control/Control.NotebookbarWriter.js:295
@@ -912,11 +912,11 @@ msgstr "重設回預設語言"
 
 #: src/control/Control.Menubar.js:1600
 msgid "Use Compact view"
-msgstr ""
+msgstr "常規視圖"
 
 #: src/control/Control.Menubar.js:1602
 msgid "Use Tabbed view"
-msgstr ""
+msgstr "選項卡視圖"
 
 #: src/control/Control.Menubar.js:1638 src/control/Control.Menubar.js:1651
 msgid "Read-only mode"
@@ -1094,7 +1094,7 @@ msgstr ""
 #: src/control/Control.NotebookbarImpress.js:224
 #: src/control/Control.NotebookbarWriter.js:185
 msgid "Download"
-msgstr ""
+msgstr "下載"
 
 #: src/control/Control.NotebookbarCalc.js:198
 #, fuzzy
@@ -1169,11 +1169,11 @@ msgstr ""
 
 #: src/control/Control.NotebookbarCalc.js:761
 msgid "Row Height"
-msgstr ""
+msgstr "行"
 
 #: src/control/Control.NotebookbarCalc.js:767
 msgid "Column Width"
-msgstr ""
+msgstr "列"
 
 #: src/control/Control.NotebookbarCalc.js:778
 #, fuzzy
@@ -1210,18 +1210,18 @@ msgstr "欄"
 #: src/control/Control.NotebookbarImpress.js:368
 #: src/control/Control.NotebookbarWriter.js:1071
 msgid "Compact view"
-msgstr ""
+msgstr "常规视图"
 
 #: src/control/Control.NotebookbarCalc.js:996
 #: src/control/Control.NotebookbarDraw.js:277
 #: src/control/Control.NotebookbarImpress.js:374
 #: src/control/Control.NotebookbarWriter.js:1094
 msgid "Status Bar"
-msgstr ""
+msgstr "状态栏"
 
 #: src/control/Control.NotebookbarCalc.js:1052
 msgid "Sparkline"
-msgstr ""
+msgstr "隐藏"
 
 #: src/control/Control.NotebookbarCalc.js:1131
 #: src/control/Control.NotebookbarCalc.js:1778
@@ -1262,7 +1262,7 @@ msgstr "ODF 簡報 (.odp)"
 #: src/control/Control.NotebookbarImpress.js:322
 #: src/control/Control.NotebookbarImpress.js:792
 msgid "Presentation"
-msgstr ""
+msgstr "播放投影片"
 
 #: src/control/Control.NotebookbarWriter.js:33
 msgid "Reference~s"
@@ -1270,7 +1270,7 @@ msgstr ""
 
 #: src/control/Control.NotebookbarWriter.js:48
 msgid "Form"
-msgstr ""
+msgstr "表單"
 
 #: src/control/Control.NotebookbarWriter.js:195
 #, fuzzy
@@ -1283,23 +1283,23 @@ msgstr ""
 
 #: src/control/Control.NotebookbarWriter.js:988
 msgid "Rich Text"
-msgstr ""
+msgstr "富文本"
 
 #: src/control/Control.NotebookbarWriter.js:993
 msgid "Checkbox"
-msgstr ""
+msgstr "複選框"
 
 #: src/control/Control.NotebookbarWriter.js:998
 msgid "Dropdown"
-msgstr ""
+msgstr "下拉"
 
 #: src/control/Control.NotebookbarWriter.js:1003
 msgid "Picture"
-msgstr ""
+msgstr "圖片"
 
 #: src/control/Control.NotebookbarWriter.js:1083
 msgid "Ruler"
-msgstr ""
+msgstr "尺規"
 
 #: src/control/Control.NotebookbarWriter.js:1514
 msgid "Add/Edit Citation"
@@ -2126,7 +2126,7 @@ msgstr "移除"
 
 #: src/layer/tile/CommentListSection.ts:822
 msgid "Remove Thread"
-msgstr ""
+msgstr "删除全部"
 
 #: src/layer/tile/CommentListSection.ts:828
 msgid "Resolve"
@@ -2138,11 +2138,11 @@ msgstr ""
 
 #: src/layer/tile/CommentListSection.ts:834
 msgid "Unresolve Thread"
-msgstr ""
+msgstr "未解决全部"
 
 #: src/layer/tile/CommentListSection.ts:834
 msgid "Resolve Thread"
-msgstr ""
+msgstr "解决全部"
 
 #: src/layer/tile/CommentSection.ts:260
 msgid "Open menu"
@@ -2190,6 +2190,12 @@ msgid ""
 "kbd><span class=\"kbd--plus\">+</span><kbd>V</kbd></td></tr><tr><td>Copy</"
 "td><td>Cut</td><td>Paste</td></tr></table>"
 msgstr ""
+"<p>您的瀏覽器對剪貼板的存取權限非常有限，囙此請使用以下鍵盤快速鍵:</p>"
+"<table class=\"warn-copy-paste\"><tr><td><kbd>Ctrl</"
+"kbd><span class=\"kbd--plus\">+</span><kbd>C</kbd></td><td><kbd>Ctrl</"
+"kbd><span class=\"kbd--plus\">+</span><kbd>X</kbd></td><td><kbd>Ctrl</"
+"kbd><span class=\"kbd--plus\">+</span><kbd>V</kbd></td></tr><tr><td>複製</"
+"td><td>剪切</td><td>粘帖</td></tr></table>"
 
 #: src/map/Clipboard.js:876
 msgid ""

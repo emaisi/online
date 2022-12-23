@@ -314,7 +314,7 @@ m4_ifelse(MOBILEAPP,[true],
       window.socketProxy = false;
       window.tileSize = 256;
       window.uiDefaults = {};
-      window.useIntegrationTheme = 'false';
+      window.useIntegrationTheme = 'true';
       window.checkFileInfoOverride = {};
       window.deeplEnabled = false;],
      [window.host = '%HOST%';
@@ -363,19 +363,19 @@ brandingLink.setAttribute("type", "text/css");
 
 var theme_name = document.getElementsByName("theme")[[0]] ? document.getElementsByName("theme")[[0]].value : '';
 var theme_prefix = '';
-if(window.useIntegrationTheme === 'true' && theme_name !== '') {
+if( theme_name !== '') {
     theme_prefix = theme_name + '/';
 }
 
 if (window.mode.isMobile()) {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-mobile.css');]
-    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-mobile.css');]
+   <!--  [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-mobile.css');] -->
 } else if (window.mode.isTablet()) {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-tablet.css');]
-    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-tablet.css');]
+    <!-- [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])m4_ifelse(IOSAPP,[true],[Branding/])[' + theme_prefix + 'branding-tablet.css');] -->
 } else {
     [link.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[device-desktop.css');]
-    [brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[' + theme_prefix + 'branding-desktop.css');]
+     <!--[brandingLink.setAttribute("href", ']m4_ifelse(MOBILEAPP,[],[%SERVICE_ROOT%/browser/%VERSION%/])[' + theme_prefix + 'branding-desktop.css');] -->
 }
 document.getElementsByTagName("head")[[0]].appendChild(link);
 document.getElementsByTagName("head")[[0]].appendChild(brandingLink);

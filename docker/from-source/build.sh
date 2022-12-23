@@ -20,6 +20,8 @@ echo "If you get a password prompt now, break, and fix your setup using 'sudo vi
 echo "yourusername ALL=(ALL) NOPASSWD: /sbin/setcap"
 echo
 sudo echo "works"
+#去除帮助
+ export ONLINE_EXTRA_BUILD_OPTIONS=--with-help-url=no
 
 # Check env variables
 if [ -z "$DOCKER_HUB_REPO" ]; then
@@ -36,10 +38,12 @@ fi;
 echo "Building core branch '$CORE_BRANCH'"
 
 if [ -z "$COLLABORA_ONLINE_REPO" ]; then
-  COLLABORA_ONLINE_REPO="https://github.com/CollaboraOnline/online.git"
+#  COLLABORA_ONLINE_REPO="https://github.com/CollaboraOnline/online.git"
+   COLLABORA_ONLINE_REPO="https://github.com/emaisi/online.git"
 fi;
 if [ -z "$COLLABORA_ONLINE_BRANCH" ]; then
-  COLLABORA_ONLINE_BRANCH="master"
+#  COLLABORA_ONLINE_BRANCH="master"
+  COLLABORA_ONLINE_BRANCH="iceinfo/main"
 fi;
 echo "Building online branch '$COLLABORA_ONLINE_BRANCH' from '$COLLABORA_ONLINE_REPO'"
 
@@ -90,7 +94,9 @@ fi
 
 # core repo
 if test ! -d core ; then
-  git clone https://git.libreoffice.org/core || exit 1
+#  git clone https://git.libreoffice.org/core || exit 1
+#缓存国内镜像，速度快很多
+  git clone git://go.suokunlong.cn/lo/core || exit 1
 fi
 
 ( cd core && git fetch --all && git checkout $CORE_BRANCH && ./g pull -r ) || exit 1
@@ -144,6 +150,10 @@ if test -d online-branding ; then
   ./brand.sh $INSTDIR/opt/lokit $INSTDIR/usr/share/coolwsd/browser/dist 7 # Nextcloud Office
   cd ..
 fi
+
+##### custom theme #####
+cd "$SRCDIR"
+cp -R ../../../online-branding-iceinfo/iceinfo "$INSTDIR/usr/share/coolwsd/browser/dist/iceinfo"
 
 #新增中文字体
 mkdir -p "$INSTDIR/usr/share/fonts"
