@@ -309,7 +309,6 @@ L.Control.Menubar = L.Control.extend({
 			{name: _UNO('.uno:ToolsMenu', 'text'), id: 'tools', type: 'menu', menu: [
 				{uno: '.uno:SpellingAndGrammarDialog'},
 				{uno: '.uno:SpellOnline'},
-				{uno: '.uno:Translate'},
 				{uno: '.uno:ThesaurusDialog'},
 				{name: _UNO('.uno:LanguageMenu'), type: 'menu', menu: [
 					{name: _UNO('.uno:SetLanguageSelectionMenu', 'text'), type: 'menu', menu: [
@@ -631,7 +630,6 @@ L.Control.Menubar = L.Control.extend({
 				{name: _('Local Image...'), id: 'insertgraphic', type: 'action'},
 				{name: _UNO('.uno:InsertGraphic', 'spreadsheet'), id: 'insertgraphicremote', type: 'action'},
 				{name: _UNO('.uno:DataDataPilotRun', 'spreadsheet'), uno: '.uno:DataDataPilotRun'},
-				{name: _UNO('.uno:InsertSparkline', 'spreadsheet'), uno: '.uno:InsertSparkline'},
 				{name: L.Control.MenubarShortcuts.addShortcut(_UNO('.uno:InsertAnnotation', 'spreadsheet'), L.Control.MenubarShortcuts.shortcuts.COMMENT), id: 'insertcomment', type: 'action'},
 				{uno: '.uno:InsertObjectChart'},
 				{name: _UNO('.uno:FontworkGalleryFloater'), uno: '.uno:FontworkGalleryFloater'},
@@ -699,15 +697,6 @@ L.Control.Menubar = L.Control.extend({
 					{uno: '.uno:AddPrintArea'},
 					{uno: '.uno:EditPrintArea'},
 					{uno: '.uno:DeletePrintArea'}]},
-				{name: _UNO('.uno:FormatSparklineMenu', 'spreadsheet'), type: 'menu', menu: [
-				    {uno: '.uno:InsertSparkline'},
-				    {uno: '.uno:DeleteSparkline'},
-				    {uno: '.uno:DeleteSparklineGroup'},
-				    {uno: '.uno:EditSparklineGroup'},
-				    {uno: '.uno:EditSparkline'},
-				    {uno: '.uno:GroupSparklines'},
-				    {uno: '.uno:UngroupSparklines'}
-				]},
 				{name: _UNO('.uno:ConditionalFormatMenu', 'spreadsheet'), type: 'menu', menu: [
 					{uno: '.uno:ConditionalFormatDialog'},
 					{uno: '.uno:ColorScaleFormatDialog'},

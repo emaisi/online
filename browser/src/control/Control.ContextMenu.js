@@ -53,11 +53,8 @@ L.Control.ContextMenu = L.Control.extend({
 				   'SpellingAndGrammarDialog', 'FontDialog', 'FontDialogForParagraph', 'TableDialog',
 				   'SpellCheckIgnore'],
 
-			spreadsheet: ['MergeCells', 'SplitCell', 'InsertCell', 'DeleteCell',
-				      'RecalcPivotTable', 'DataDataPilotRun', 'DeletePivotTable',
-				      'FormatCellDialog', 'DeleteNote', 'SetAnchorToCell', 'SetAnchorToCellResize',
-				      'FormatSparklineMenu', 'InsertSparkline', 'DeleteSparkline', 'DeleteSparklineGroup',
-				      'EditSparklineGroup', 'EditSparkline', 'GroupSparklines', 'UngroupSparklines'],
+			spreadsheet: ['MergeCells', 'SplitCell', 'RecalcPivotTable', 'DataDataPilotRun', 'DeletePivotTable',
+				'FormatCellDialog', 'DeleteNote', 'SetAnchorToCell', 'SetAnchorToCellResize'],
 
 			presentation: ['SetDefault'],
 			drawing: []
@@ -87,8 +84,7 @@ L.Control.ContextMenu = L.Control.extend({
 			// text
 			'SpellingAndGrammarDialog', 'FontDialog', 'FontDialogForParagraph',
 			// spreadsheet
-			'FormatCellDialog', 'DataDataPilotRun',
-			'GroupSparklines', 'UngroupSparklines'
+			'FormatCellDialog', 'DataDataPilotRun'
 		]
 	},
 

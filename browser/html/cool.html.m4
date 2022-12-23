@@ -315,8 +315,7 @@ m4_ifelse(MOBILEAPP,[true],
       window.tileSize = 256;
       window.uiDefaults = {};
       window.useIntegrationTheme = 'true';
-      window.checkFileInfoOverride = {};
-      window.deeplEnabled = false;],
+      window.checkFileInfoOverride = {};],
      [window.host = '%HOST%';
       window.serviceRoot = '%SERVICE_ROOT%';
       window.hexifyUrl = %HEXIFY_URL%;
