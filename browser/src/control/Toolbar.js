@@ -56,8 +56,17 @@ L.Map.include({
 				data = data.concat(Object.keys(commandValues));
 			}
 			fontcombobox.empty();
+			var windowZhFonts = [{en: 'SimSun', cn: '宋体'}, {en: 'NSimSun', cn: '新宋体'},{en: 'FangSong', cn: '仿宋'},{en: 'KaiTi', cn: '楷体'},{en: 'SimHei', cn: '黑体'},{en: 'Microsoft YaHei', cn: '微软雅黑'},{en: 'Microsoft YaHei Light', cn: '微软雅黑Light'},{en: 'Microsoft YaHei UI', cn: '微软雅黑UI'},{en: 'Microsoft YaHei UI Light', cn: '微软雅黑UILight'}];
+			var windowZhFontsStr = 'SimSun,NSimSun,FangSong,KaiTi,SimHei,Microsoft YaHei,Microsoft YaHei Light,Microsoft YaHei UI,Microsoft YaHei UI Light';
+			for (var i = 0; i < windowZhFonts.length; ++i) {
+				var option = document.createElement('option');
+				option.text = windowZhFonts[i].cn;
+				option.value = windowZhFonts[i].en;
+				fontcombobox.append(option);
+			}
 			for (var i = 0; i < data.length; ++i) {
 				if (!data[i]) continue;
+				if (windowZhFontsStr.indexOf(data[i]) != -1) continue;
 				var option = document.createElement('option');
 				option.text = data[i];
 				option.value = data[i];
@@ -86,13 +95,11 @@ L.Map.include({
 				}
 			});
 
-			if (!found && state) {
-				fontcombobox
-					.append($('<option></option>')
-						.text(state));
+			if (!found) {
+				fontcombobox.val('').trigger('change');;
+			} else {
+				fontcombobox.val(state).trigger('change');
 			}
-
-			fontcombobox.val(state).trigger('change');
 		};
 
 		var onFontListChanged = function(e) {

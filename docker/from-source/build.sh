@@ -145,6 +145,10 @@ if test -d online-branding ; then
   cd ..
 fi
 
+#新增中文字体
+mkdir -p "$INSTDIR/usr/share/fonts"
+cp -R ../WindowsFonts "$INSTDIR/usr/share/fonts/WindowsFonts"
+
 # Create new docker image
 if [ -z "$NO_DOCKER_IMAGE" ]; then
   cd "$SRCDIR"
