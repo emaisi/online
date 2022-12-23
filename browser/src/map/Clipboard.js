@@ -663,10 +663,10 @@ L.Clipboard = L.Class.extend({
 						L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
 					}
 				}).catch(function(err) {
-						// 读取剪切板内容失败
-						console.error('Failed navigator.permissions.query: ', err);
-						L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
-					});
+					// 读取剪切板内容失败
+					console.error('Failed navigator.permissions.query: ', err);
+					L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);
+				});
 			} catch (error) {
 				console.error('Failed to read clipboard contents: ', error);
 				L.Map.THIS._clip._doInternalPaste(L.Map.THIS, true);

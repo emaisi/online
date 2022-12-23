@@ -332,8 +332,7 @@ L.Control.Menubar = L.Control.extend({
 				{name: _UNO('.uno:RunMacro'), id: 'runmacro', uno: '.uno:RunMacro'}
 			]},
 			{name: _UNO('.uno:HelpMenu', 'text'), id: 'help', type: 'menu', menu: [
-					{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}
-				]
+				{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}]
 			},
 			{name: _('Last modification'), id: 'last-mod', type: 'action', tablet: false}
 		],
@@ -466,8 +465,7 @@ L.Control.Menubar = L.Control.extend({
 
 			]},
 			{name: _UNO('.uno:HelpMenu', 'presentation'), id: 'help', type: 'menu', menu: [
-					{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}
-				]
+				{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}]
 			},
 			{name: _('Last modification'), id: 'last-mod', type: 'action', tablet: false}
 		],
@@ -577,8 +575,7 @@ L.Control.Menubar = L.Control.extend({
 					{name: _('None (Do not check spelling)'), id: 'nonelanguage', uno: '.uno:LanguageStatus?Language:string=Default_LANGUAGE_NONE'}]}
 			]},
 			{name: _UNO('.uno:HelpMenu', 'presentation'), id: 'help', type: 'menu', menu: [
-					{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}
-				]
+				{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}]
 			},
 			{name: _('Last modification'), id: 'last-mod', type: 'action', tablet: false}
 		],
@@ -806,8 +803,7 @@ L.Control.Menubar = L.Control.extend({
 				{name: _UNO('.uno:RunMacro'), id: 'runmacro', uno: '.uno:RunMacro'}
 			]},
 			{name: _UNO('.uno:HelpMenu', 'spreadsheet'), id: 'help', type: 'menu', menu: [
-					{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}
-				]
+				{name: L.Control.MenubarShortcuts.addShortcut(_('Keyboard shortcuts'), L.Control.MenubarShortcuts.shortcuts.KEYBOARD_SHORTCUTS), id: 'keyboard-shortcuts', type: 'action', iosapp: false}]
 			},
 			{name: _('Last modification'), id: 'last-mod', type: 'action', tablet: false}
 		],
@@ -920,8 +916,7 @@ L.Control.Menubar = L.Control.extend({
 			{name: _UNO('.uno:PickList', 'presentation'), id: 'file', type: 'menu', menu: [
 				{name: _UNO('.uno:Save', 'presentation'), id: 'save', type: 'action'},
 				{name: _UNO('.uno:SaveAs', 'presentation'), id: 'saveas', type: 'action'},
- 				{name: _UNO('.uno:Print', 'presentation'), id: 'print', type: 'action'},
-
+				{name: _UNO('.uno:Print', 'presentation'), id: 'print', type: 'action'},
 			]},
 			{name: !window.ThisIsAMobileApp ? _('Download as') : _('Export as'), id:'downloadas', type: 'menu', menu: [
 				{name: _('PDF Document (.pdf)'), id: 'downloadas-pdf', type: 'action'},

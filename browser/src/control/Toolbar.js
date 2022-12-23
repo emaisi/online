@@ -96,7 +96,7 @@ L.Map.include({
 			});
 
 			if (!found) {
-				fontcombobox.val('').trigger('change');;
+				fontcombobox.val('').trigger('change');
 			} else {
 				fontcombobox.val(state).trigger('change');
 			}
