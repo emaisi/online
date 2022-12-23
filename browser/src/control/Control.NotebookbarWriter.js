@@ -94,11 +94,9 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 
 	getFileTab: function() {
 		var hasSigning = L.DomUtil.get('document-signing-bar') !== null;
-		var hasRevisionHistory = L.Params.revHistoryEnabled;
 		var hasPrint = !this._map['wopi'].HidePrintOption;
 		var hasRepair = !this._map['wopi'].HideRepairOption;
 		var hasSaveAs = !this._map['wopi'].UserCanNotWriteRelative;
-		var hasShare = this._map['wopi'].EnableShare;
 		var hasGroupedDownloadAs = !!window.groupDownloadAsForNb;
 		var hasGroupedSaveAs = window.uiDefaults && window.uiDefaults.saveAsMode === 'group';
 		var hasRunMacro = !(window.enableMacrosExecution  === 'false');
@@ -137,26 +135,6 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 		}
 
 		content = content.concat([
-			{
-				'type': 'container',
-				'children': [
-					hasShare ?
-						{
-							'id': 'ShareAs',
-							'type': 'menubartoolitem',
-							'text': _('Share'),
-							'command': '.uno:shareas'
-						} : {},
-					hasRevisionHistory ?
-						{
-							'id': 'Rev-History',
-							'type': 'menubartoolitem',
-							'text': _('See history'),
-							'command': '.uno:rev-history'
-						} : {},
-				],
-				'vertical': 'true'
-			},
 			hasPrint ?
 				{
 					'id': 'print',
@@ -280,36 +258,11 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 	},
 
 	getHelpTab: function() {
-		var hasLatestUpdates = window.enableWelcomeMessage;
-		var hasFeedback = this._map.feedback;
-		var hasAbout = L.DomUtil.get('about-dialog') !== null;
 
 		var content = [
 			{
 				'type': 'container',
 				'children': [
-					{
-						'type': 'toolbox',
-						'children': [
-							{
-								'id': 'forum',
-								'type': 'bigtoolitem',
-								'text': _('Forum'),
-								'command': '.uno:ForumHelp'
-							}
-						]
-					},
-					{
-						'type': 'toolbox',
-						'children': [
-							{
-								'id': 'online-help',
-								'type': 'bigtoolitem',
-								'text': _('Online Help'),
-								'command': '.uno:OnlineHelp'
-							}
-						]
-					},
 					{
 						'type': 'toolbox',
 						'children': [
@@ -320,59 +273,7 @@ L.Control.NotebookbarWriter = L.Control.Notebookbar.extend({
 								'command': '.uno:KeyboardShortcuts'
 							}
 						]
-					},
-					{
-						'type': 'bigtoolitem',
-						'text': _UNO('.uno:AccessibilityCheck', 'text'),
-						'command': '.uno:AccessibilityCheck'
-					},
-					{
-						'type': 'toolbox',
-						'children': [
-							{
-								'id': 'report-an-issue',
-								'type': 'bigtoolitem',
-								'text': _('Report an issue'),
-								'command': '.uno:ReportIssue'
-							}
-						]
-					},
-					hasLatestUpdates ?
-						{
-							'type': 'toolbox',
-							'children': [
-								{
-									'id': 'latestupdates',
-									'type': 'bigtoolitem',
-									'text': _('Latest Updates'),
-									'command': '.uno:LatestUpdates'
-								}
-							]
-						} : {},
-					hasFeedback ?
-						{
-							'type': 'toolbox',
-							'children': [
-								{
-									'id': 'feedback',
-									'type': 'bigtoolitem',
-									'text': _('Send Feedback'),
-									'command': '.uno:Feedback'
-								}
-							]
-						} : {},
-					hasAbout ?
-						{
-							'type': 'toolbox',
-							'children': [
-								{
-									'id': 'about',
-									'type': 'bigtoolitem',
-									'text': _('About'),
-									'command': '.uno:About'
-								}
-							]
-						} : {}
+					}
 				]
 			}
 		];

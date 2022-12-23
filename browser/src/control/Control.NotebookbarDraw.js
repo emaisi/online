@@ -113,11 +113,9 @@ L.Control.NotebookbarDraw = L.Control.NotebookbarImpress.extend({
 	},
 
 	getFileTab: function() {
-		var hasRevisionHistory = L.Params.revHistoryEnabled;
 		var hasPrint = !this._map['wopi'].HidePrintOption;
 		var hasRepair = !this._map['wopi'].HideRepairOption;
 		var hasSaveAs = !this._map['wopi'].UserCanNotWriteRelative;
-		var hasShare = this._map['wopi'].EnableShare;
 		var hasSave = !this._map['wopi'].HideSaveOption;
 
 		var content = [
@@ -140,27 +138,7 @@ L.Control.NotebookbarDraw = L.Control.NotebookbarImpress.extend({
 					'text': _UNO('.uno:SaveAs', 'presentation'),
 					'command': '.uno:SaveAs'
 				} : {},
-			{
-				'id': 'file-shareas-rev-history',
-				'type': 'container',
-				'children': [
-					hasShare ?
-						{
-							'id': 'ShareAs',
-							'type': 'menubartoolitem',
-							'text': _('Share'),
-							'command': '.uno:shareas'
-						} : {},
-					hasRevisionHistory ?
-						{
-							'id': 'Rev-History',
-							'type': 'menubartoolitem',
-							'text': _('See history'),
-							'command': '.uno:rev-history'
-						} : {},
-				],
-				'vertical': 'true'
-			},
+
 			hasPrint ?
 				{
 					'id': 'print',

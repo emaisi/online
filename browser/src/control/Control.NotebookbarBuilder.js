@@ -52,22 +52,15 @@ L.Control.NotebookbarBuilder = L.Control.JSDialogBuilder.extend({
 		this._toolitemHandlers['.uno:Presentation'] = this._startPresentationControl;
 		this._toolitemHandlers['.uno:Save'] = this._saveControl;
 		this._toolitemHandlers['.uno:SaveAs'] = this._saveAsControl;
-		this._toolitemHandlers['.uno:shareas'] = this._shareAsControl;
 		this._toolitemHandlers['.uno:Print'] = this._printControl;
-		this._toolitemHandlers['.uno:rev-history'] = this._revHistoryControl;
 		this._toolitemHandlers['.uno:InsertPageHeader'] = this._headerFooterControl;
 		this._toolitemHandlers['.uno:InsertPageFooter'] = this._headerFooterControl;
 		this._toolitemHandlers['.uno:Text'] = this._insertTextBoxControl;
 		this._toolitemHandlers['.uno:DrawText'] = this._insertTextBoxControl;
 		this._toolitemHandlers['.uno:VerticalText'] = this._insertTextBoxControl;
 		this._toolitemHandlers['.uno:ShowResolvedAnnotations'] = this._showResolvedAnnotationsControl;
-		this._toolitemHandlers['.uno:OnlineHelp'] = this._onlineHelpControl;
-		this._toolitemHandlers['.uno:ForumHelp'] = this._onlineHelpControl;
 		this._toolitemHandlers['.uno:KeyboardShortcuts'] = this._onlineHelpControl;
-		this._toolitemHandlers['.uno:ReportIssue'] = this._onlineHelpControl;
-		this._toolitemHandlers['.uno:LatestUpdates'] = this._onlineHelpControl;
-		this._toolitemHandlers['.uno:Feedback'] = this._onlineHelpControl;
-		this._toolitemHandlers['.uno:About'] = this._onlineHelpControl;
+
 		this._toolitemHandlers['.uno:FullScreen'] = this._onlineHelpControl;
 		this._toolitemHandlers['.uno:LanguageMenu'] = this._languageMenu;
 
