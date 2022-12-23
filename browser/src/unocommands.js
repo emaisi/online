@@ -429,7 +429,6 @@ var unoCommandsArray = {
 	'Sidebar':{global:{menu:_('Sidebar'),},},
 	'SidebarDeck.ElementsDeck':{global:{menu:_('Open the Elements Deck'),},},
 	'SlideChangeWindow':{presentation:{menu:_('Slide Transition'),},},
-	'SlideMasterPage':{presentation:{menu:_('~Master Slide'),},},
 	'SlideMenu':{presentation:{menu:_('S~lide'),},},
 	'SlideSetup':{presentation:{menu:_('Slide Properties...'),},},
 	'SmallCaps':{global:{menu:_('Small capitals'),},},

@@ -386,7 +386,6 @@ L.Control.Menubar = L.Control.extend({
 				   {name: _('Show Status Bar'), id: 'showstatusbar', type: 'action'},
 				   {uno: '.uno:Sidebar'},
 				   {type: 'separator'},
-				   {uno: '.uno:SlideMasterPage'},
 				   {uno: '.uno:ModifyPage'},
 				   {uno: '.uno:SlideChangeWindow'},
 				   {uno: '.uno:CustomAnimation'},
@@ -1418,7 +1417,7 @@ L.Control.Menubar = L.Control.extend({
 						self._map.fire('closemobilewizard');
 						$('#toolbar-hamburger').removeClass('menuwizard-opened').addClass('menuwizard-closed');
 						$('#toolbar-mobile-back').show();
-						$('#formulabar').show();
+						// $('#formulabar').show();
 					}
 				});
 				// hide mobile menu beforeunload

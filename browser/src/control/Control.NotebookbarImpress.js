@@ -354,11 +354,6 @@ L.Control.NotebookbarImpress = L.Control.NotebookbarWriter.extend({
 			},
 			{
 				'type': 'bigtoolitem',
-				'text': _UNO('.uno:SlideMasterPage', 'presentation'),
-				'command': '.uno:SlideMasterPage'
-			},
-			{
-				'type': 'bigtoolitem',
 				'text': _UNO('.uno:Sidebar'),
 				'command': '.uno:Sidebar'
 			}

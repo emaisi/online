@@ -2424,7 +2424,7 @@ L.Control.JSDialogBuilder = L.Control.extend({
 			'insertindexesentry': 'insertmultiindex',
 			'paperheight': 'pageheight',
 			'masterslidespanel': 'masterslide',
-			'slidemasterpage': 'masterslide',
+			// 'slidemasterpage': 'masterslide',
 			'tabledeletemenu': 'deletetable',
 			'tracechangemode': 'trackchanges',
 			'deleteallannotation': 'deleteallnotes',
@@ -3083,6 +3083,12 @@ L.Control.JSDialogBuilder = L.Control.extend({
 	},
 
 	_menuItemHandler: function(parentContainer, data, builder) {
+		//去除“清除内容”右键菜单
+		var kishCommandName = data.command && data.command.startsWith('.uno:') ? data.command.substring('.uno:'.length) : data.id;
+		if (builder.map.getDocType() === 'spreadsheet' &&  kishCommandName && kishCommandName.toLowerCase() == 'delete') {
+			return;
+		}
+
 		var title = data.text;
 		// separator
 		if (title === '') {
