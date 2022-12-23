@@ -63,7 +63,10 @@ L.Control.AlertDialog = L.Control.extend({
 				});
 		} else if (e.cmd && e.kind) {
 			this._map.fire('hidebusy');
-
+			// 移动端ppt播放后，退出全屏，点击报错的问题，忽略错误
+			if (e.kind === 'syntax' && e.cmd === 'dialogevent') {
+				return;
+			}
 			var msg = _('The server encountered a %0 error while parsing the %1 command.');
 			msg = msg.replace('%0', e.kind);
 			msg = msg.replace('%1', e.cmd);
