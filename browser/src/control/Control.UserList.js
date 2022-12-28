@@ -145,8 +145,7 @@ L.Control.UserList = L.Control.extend({
 				document.getElementById('userListSummary').appendChild(L.control.createAvatar(user.viewId, user.userName, user.extraInfo, user.color));
 			}
 		});
-		document.getElementById('userListSummary_total').innerText(document.getElementById('userListSummary').children.length + '人');
-
+		document.getElementById('userListSummary_total').innerText = document.getElementById('userListSummary').children.length + '人';
 		// Popover rendering
 		this.options.listUser.forEach(function (user) {
 			if (document.querySelector('#userListPopover .user-list-item[data-view-id="' + user.viewId + '"]')) {
