@@ -1082,7 +1082,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     cspOss << "Content-Security-Policy: default-src 'none'; "
         "frame-src 'self' " << WELCOME_URL << " " << FEEDBACK_URL << " " << buyProduct <<
         " blob: " << documentSigningURL << "; "
-           "connect-src 'self' https://www.zotero.org https://api.zotero.org " << cnxDetails.getWebSocketUrl() << "; "
+           "connect-src 'self' https://www.xxxxx.org https://api.xxxxxxx.org " << cnxDetails.getWebSocketUrl() << "; "
            "script-src 'unsafe-inline' 'self'; "
            "style-src 'self' 'unsafe-inline'; "
            "font-src 'self' data:; "
@@ -1112,9 +1112,23 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
             }
             break;
         }
+        if (param.first == "src2")
+        {
+            std::string wopiFrameAncestor2;
+            Poco::URI::decode(param.second, wopiFrameAncestor2);
+            Poco::URI uriWopiFrameAncestor2(wopiFrameAncestor2);
+            // Remove parameters from URL
+            wopiFrameAncestor2 = uriWopiFrameAncestor2.getHost();
+            if (wopiFrameAncestor2 != uriHost.getHost() && wopiFrameAncestor2 != configFrameAncestor)
+            {
+                frameAncestors += ' ' + wopiFrameAncestor2 + ":*";
+                LOG_TRC("Picking frame ancestor from src2: " << wopiFrameAncestor2);
+            }
+            break;
+        }
     }
 
-    std::string imgSrc = "img-src 'self' data: https://www.collaboraoffice.com/";
+    std::string imgSrc = "img-src 'self' data: https://www.xxxxx.com/";
     if (!frameAncestors.empty())
     {
         LOG_TRC("Allowed frame ancestors: " << frameAncestors);
