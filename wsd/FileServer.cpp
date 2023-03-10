@@ -1110,7 +1110,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
                 frameAncestors += ' ' + wopiFrameAncestor + ":*";
                 LOG_TRC("Picking frame ancestor from WOPISrc: " << wopiFrameAncestor);
             }
-            break;
+            continue;
         }
         if (param.first == "src2")
         {
@@ -1124,7 +1124,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
                 frameAncestors += ' ' + wopiFrameAncestor2 + ":*";
                 LOG_TRC("Picking frame ancestor from src2: " << wopiFrameAncestor2);
             }
-            break;
+            continue;
         }
     }
 
